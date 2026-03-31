@@ -1,0 +1,2092 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>DisasterSense — Real-Time Monitoring Platform</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#060a12;--surface:#0b1220;--surface2:#101828;--border:#1c2a3e;--border2:#243348;
+  --cyan:#00e5ff;--cyan-dim:rgba(0,229,255,.1);--orange:#ff6b35;--yellow:#f5c518;
+  --red:#ff2d55;--green:#00e676;--purple:#a78bfa;
+  --text:#dde6f0;--muted:#4a6580;--dim:#2a3f58;
+  --r:8px;--rsm:5px;
+  --ui:'JetBrains Mono',monospace;--head:'Syne',sans-serif;
+  --shadow:0 4px 24px rgba(0,0,0,.6);--glow:0 0 20px rgba(0,229,255,.2);
+}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--text);font-family:var(--ui);font-size:13px}
+body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:9999;
+  background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,229,255,.007) 3px,rgba(0,229,255,.007) 4px)}
+
+/* ─── TICKER ─── */
+#ticker-bar{
+  height:30px;display:flex;align-items:center;overflow:hidden;
+  background:linear-gradient(90deg,rgba(255,45,85,.15),rgba(255,107,53,.08),rgba(0,0,0,0));
+  border-bottom:1px solid rgba(255,45,85,.25);
+  position:relative;z-index:601;
+}
+.ticker-label{
+  flex-shrink:0;padding:0 14px;font-size:.58rem;letter-spacing:2px;font-weight:700;
+  color:var(--red);background:rgba(255,45,85,.2);border-right:1px solid rgba(255,45,85,.3);
+  height:100%;display:flex;align-items:center;gap:6px;white-space:nowrap;
+}
+.ticker-label .td{width:5px;height:5px;border-radius:50%;background:var(--red);animation:blink 1.2s ease-in-out infinite}
+.ticker-wrap{flex:1;overflow:hidden;height:100%}
+.ticker-track{display:flex;align-items:center;height:100%;white-space:nowrap;animation:tickScroll 38s linear infinite}
+@keyframes tickScroll{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+.tick-item{display:inline-flex;align-items:center;gap:7px;padding:0 28px;font-size:.68rem;cursor:pointer;transition:color .2s}
+.tick-item:hover{color:var(--cyan)}
+.tick-sep{color:var(--dim);padding:0 4px}
+
+/* ─── HEADER ─── */
+header{height:46px;display:flex;align-items:center;justify-content:space-between;
+  padding:0 16px;background:rgba(11,18,32,.98);border-bottom:1px solid var(--border);
+  position:relative;z-index:600}
+.logo{font-family:var(--head);font-size:1.1rem;font-weight:800;display:flex;align-items:center;gap:8px;letter-spacing:-.3px}
+.logo-accent{color:var(--cyan)}
+.hdr-center{display:flex;align-items:center;gap:10px}
+.hdr-r{display:flex;align-items:center;gap:12px}
+.live-badge{display:flex;align-items:center;gap:6px;padding:4px 10px;border-radius:20px;
+  background:rgba(0,230,118,.07);border:1px solid rgba(0,230,118,.2)}
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:blink 1.8s ease-in-out infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+.live-txt{font-size:.58rem;letter-spacing:1.5px;color:var(--green)}
+#clock{font-size:.68rem;color:var(--cyan);font-weight:500}
+
+/* Stats pills in header */
+.hdr-stat-pill{display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;
+  background:rgba(255,255,255,.04);border:1px solid var(--border2);font-size:.6rem;cursor:default}
+.hdr-stat-pill .hsp-v{color:var(--cyan);font-weight:700;margin-left:2px}
+.hdr-stat-pill .hsp-v.warn{color:var(--orange)}
+.hdr-stat-pill .hsp-v.crit{color:var(--red)}
+
+/* ─── ACCOUNT ─── */
+.acct-btn{position:relative;display:flex;align-items:center;gap:8px;
+  background:rgba(255,255,255,.04);border:1px solid var(--border2);
+  border-radius:40px;padding:4px 10px 4px 5px;cursor:pointer;transition:all .2s;user-select:none}
+.acct-btn:hover{background:rgba(0,229,255,.08);border-color:rgba(0,229,255,.3)}
+.acct-avatar{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#2a6ef5,#00e5ff);
+  display:flex;align-items:center;justify-content:center;font-size:.68rem;font-weight:700;
+  color:#fff;font-family:var(--head);overflow:hidden;flex-shrink:0;border:1.5px solid rgba(0,229,255,.3)}
+.acct-avatar img{width:100%;height:100%;object-fit:cover;border-radius:50%}
+.acct-name{font-size:.68rem;font-weight:500;color:var(--text);max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.acct-chevron{font-size:.55rem;color:var(--muted);transition:transform .2s}
+.acct-btn.open .acct-chevron{transform:rotate(180deg)}
+.guest-badge{display:flex;align-items:center;gap:7px;background:rgba(245,197,24,.06);border:1px solid rgba(245,197,24,.2);
+  border-radius:40px;padding:4px 10px;cursor:pointer;transition:all .2s}
+.guest-badge:hover{background:rgba(245,197,24,.12)}
+.guest-badge span{font-size:.65rem;color:var(--yellow)}
+.guest-login-btn{background:linear-gradient(135deg,#2a6ef5,#1a56c4);border:none;border-radius:20px;
+  padding:5px 12px;color:#fff;font-size:.65rem;font-family:var(--ui);cursor:pointer;font-weight:500;transition:all .2s}
+.guest-login-btn:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(42,110,245,.4)}
+
+/* Dropdown */
+.acct-dropdown{position:absolute;top:calc(100% + 8px);right:0;width:280px;background:var(--surface2);
+  border:1px solid var(--border2);border-radius:14px;
+  box-shadow:0 20px 50px rgba(0,0,0,.7),0 0 0 1px rgba(255,255,255,.04) inset;
+  z-index:9000;overflow:hidden;animation:dropIn .2s cubic-bezier(.2,.8,.4,1);display:none}
+.acct-dropdown.visible{display:block}
+@keyframes dropIn{from{opacity:0;transform:translateY(-8px) scale(.98)}to{opacity:1;transform:none}}
+.drop-profile{padding:16px 14px 12px;background:linear-gradient(135deg,rgba(42,110,245,.08),rgba(0,229,255,.04));
+  border-bottom:1px solid var(--border);display:flex;gap:12px;align-items:center}
+.drop-avatar{width:40px;height:40px;border-radius:50%;flex-shrink:0;background:linear-gradient(135deg,#2a6ef5,#00e5ff);
+  display:flex;align-items:center;justify-content:center;font-size:.95rem;font-weight:800;
+  color:#fff;font-family:var(--head);overflow:hidden;border:2px solid rgba(0,229,255,.3)}
+.drop-avatar img{width:100%;height:100%;object-fit:cover;border-radius:50%}
+.drop-info{flex:1;min-width:0}
+.drop-name{font-family:var(--head);font-weight:700;font-size:.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.drop-email{font-size:.6rem;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.drop-badge{display:inline-flex;align-items:center;gap:4px;margin-top:5px;
+  background:rgba(0,230,118,.1);border:1px solid rgba(0,230,118,.2);border-radius:4px;padding:1px 7px;font-size:.55rem;color:var(--green)}
+.drop-menu{padding:7px}
+.drop-item{display:flex;align-items:center;gap:10px;width:100%;background:none;border:none;border-radius:var(--rsm);
+  padding:9px 10px;cursor:pointer;color:var(--text);font-family:var(--ui);font-size:.72rem;transition:all .15s;text-align:left}
+.drop-item:hover{background:rgba(255,255,255,.06);color:var(--cyan)}
+.drop-item.danger:hover{background:rgba(255,45,85,.08);color:var(--red)}
+.drop-icon{font-size:.85rem;width:20px;text-align:center;flex-shrink:0}
+.drop-label{flex:1}
+.drop-arrow{font-size:.58rem;color:var(--muted)}
+.drop-sep{height:1px;background:var(--border);margin:4px 0}
+.notif-toggle{display:flex;align-items:center;justify-content:space-between;padding:9px 10px;border-radius:var(--rsm);cursor:pointer;transition:background .15s}
+.notif-toggle:hover{background:rgba(255,255,255,.04)}
+.notif-left{display:flex;align-items:center;gap:10px}
+.notif-lbl{font-size:.72rem}
+.notif-sub{font-size:.58rem;color:var(--muted);margin-top:1px}
+.tog{width:34px;height:18px;border-radius:9px;background:var(--border2);position:relative;transition:background .2s;flex-shrink:0;cursor:pointer}
+.tog.on{background:var(--cyan)}
+.tog::after{content:'';position:absolute;top:3px;left:3px;width:12px;height:12px;border-radius:50%;background:#fff;transition:transform .2s;box-shadow:0 1px 4px rgba(0,0,0,.3)}
+.tog.on::after{transform:translateX(16px)}
+
+/* Profile panel */
+.profile-overlay{position:fixed;inset:0;z-index:8000;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);display:none}
+.profile-overlay.visible{display:block}
+.profile-panel{position:fixed;top:0;right:0;bottom:0;width:360px;background:var(--surface);
+  border-left:1px solid var(--border2);z-index:8001;overflow-y:auto;
+  transform:translateX(100%);transition:transform .3s cubic-bezier(.2,.8,.4,1)}
+.profile-panel.visible{transform:none}
+.profile-panel::-webkit-scrollbar{width:3px}
+.profile-panel::-webkit-scrollbar-thumb{background:var(--border2)}
+.pp-header{padding:20px 16px 16px;background:linear-gradient(135deg,rgba(42,110,245,.12),rgba(0,229,255,.06));
+  border-bottom:1px solid var(--border);display:flex;gap:12px;align-items:center;position:relative}
+.pp-close{position:absolute;top:14px;right:14px;background:rgba(255,255,255,.06);border:1px solid var(--border2);
+  border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;color:var(--muted);font-size:.75rem;transition:all .15s}
+.pp-close:hover{background:rgba(255,45,85,.12);color:var(--red);border-color:rgba(255,45,85,.3)}
+.pp-avatar{width:58px;height:58px;border-radius:50%;flex-shrink:0;background:linear-gradient(135deg,#2a6ef5,#00e5ff);
+  display:flex;align-items:center;justify-content:center;font-size:1.4rem;font-weight:800;
+  color:#fff;font-family:var(--head);overflow:hidden;border:2px solid rgba(0,229,255,.4);box-shadow:0 0 28px rgba(0,229,255,.22)}
+.pp-avatar img{width:100%;height:100%;object-fit:cover;border-radius:50%}
+.pp-info{flex:1;min-width:0}
+.pp-name{font-family:var(--head);font-weight:800;font-size:1.05rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pp-email{font-size:.65rem;color:var(--muted);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pp-since{font-size:.58rem;color:var(--dim);margin-top:3px}
+.pp-sec{padding:14px 16px;border-bottom:1px solid var(--border)}
+.pp-sec-title{font-size:.55rem;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+.pp-stat-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px}
+.pp-stat{background:var(--bg);border:1px solid var(--border2);border-radius:var(--r);padding:9px;text-align:center}
+.pp-stat-v{font-family:var(--head);font-size:1rem;font-weight:800;color:var(--cyan)}
+.pp-stat-l{font-size:.55rem;color:var(--muted);margin-top:2px}
+.pp-field{margin-bottom:10px}
+.pp-field label{display:block;font-size:.58rem;color:var(--muted);margin-bottom:4px;letter-spacing:.5px}
+.pp-field input{width:100%;background:rgba(255,255,255,.03);border:1px solid var(--border2);
+  border-radius:var(--rsm);padding:9px 11px;font-size:.74rem;color:var(--text);font-family:var(--ui);outline:none;transition:border-color .2s}
+.pp-field input:focus{border-color:rgba(0,229,255,.5);background:rgba(0,229,255,.04)}
+.pp-field input[readonly]{color:var(--muted);cursor:default}
+.pp-notif-row{display:flex;align-items:center;justify-content:space-between;background:var(--bg);
+  border:1px solid var(--border2);border-radius:var(--r);padding:10px 12px;margin-bottom:7px}
+.pp-notif-info{flex:1}
+.pp-notif-title{font-size:.74rem;font-weight:500}
+.pp-notif-sub{font-size:.6rem;color:var(--muted);margin-top:2px}
+.pp-btn{width:100%;padding:10px;border-radius:var(--r);font-size:.72rem;font-family:var(--ui);cursor:pointer;transition:all .2s;font-weight:500}
+.pp-btn-primary{background:linear-gradient(135deg,#2a6ef5,#1a56c4);border:none;color:#fff;margin-bottom:7px}
+.pp-btn-primary:hover{transform:translateY(-1px);box-shadow:0 4px 16px rgba(42,110,245,.4)}
+.pp-btn-danger{background:rgba(255,45,85,.08);border:1px solid rgba(255,45,85,.2);color:var(--red)}
+.pp-btn-danger:hover{background:rgba(255,45,85,.15);border-color:rgba(255,45,85,.4)}
+.pp-provider-row{display:flex;align-items:center;gap:10px;background:var(--bg);border:1px solid var(--border2);border-radius:var(--r);padding:11px 12px}
+.pp-provider-icon{font-size:1rem}
+.pp-provider-info{flex:1}
+.pp-provider-name{font-size:.72rem;font-weight:500}
+.pp-provider-sub{font-size:.58rem;color:var(--muted);margin-top:1px}
+.pp-provider-check{color:var(--green);font-size:.76rem}
+
+/* ─── SEARCH BAR ─── */
+.search-bar{position:absolute;top:106px;left:16px;width:380px;z-index:700}
+.search-label{font-size:.52rem;letter-spacing:2px;text-transform:uppercase;color:var(--muted);
+  margin-bottom:5px;padding-left:4px;display:flex;align-items:center;gap:5px}
+.search-label::before{content:'';width:12px;height:1px;background:var(--border2)}
+.search-box{display:flex;align-items:center;
+  background:rgba(16,24,40,.95);
+  border:1.5px solid var(--border2);
+  border-radius:14px;padding:0 12px;
+  box-shadow:var(--shadow),0 0 0 0 rgba(0,229,255,0);
+  transition:border-color .25s,box-shadow .25s,border-radius .15s;
+  backdrop-filter:blur(16px)}
+.search-box.open{border-color:var(--cyan);box-shadow:var(--shadow),0 0 0 3px rgba(0,229,255,.08);border-radius:14px 14px 0 0}
+.search-box input{flex:1;background:none;border:none;outline:none;color:var(--text);font-family:var(--ui);font-size:.82rem;padding:13px 10px}
+.search-box input::placeholder{color:var(--muted)}
+.s-icon{color:var(--cyan);font-size:.88rem;flex-shrink:0;opacity:.7}
+.s-divider{width:1px;height:16px;background:var(--border2);margin:0 4px;flex-shrink:0}
+.s-btns{display:flex;gap:2px;flex-shrink:0}
+.iBtn{background:none;border:none;cursor:pointer;color:var(--muted);font-size:.85rem;padding:4px 6px;border-radius:6px;transition:color .15s,background .15s;font-family:var(--ui)}
+.iBtn:hover{color:var(--cyan);background:var(--cyan-dim)}
+.iBtn.locate-btn{display:flex;align-items:center;gap:4px;font-size:.6rem;color:var(--cyan);
+  border:1px solid rgba(0,229,255,.2);border-radius:6px;padding:4px 8px;background:rgba(0,229,255,.06)}
+.iBtn.locate-btn:hover{background:rgba(0,229,255,.14);border-color:rgba(0,229,255,.4)}
+#sdrop{display:none;background:rgba(16,24,40,.98);border:1.5px solid var(--cyan);border-top:none;
+  border-radius:0 0 14px 14px;overflow:hidden;box-shadow:var(--shadow),0 8px 32px rgba(0,0,0,.5);
+  max-height:320px;overflow-y:auto;backdrop-filter:blur(16px)}
+#sdrop::-webkit-scrollbar{width:3px}
+#sdrop::-webkit-scrollbar-thumb{background:var(--border2)}
+.sec-lbl{padding:6px 13px 3px;font-size:.55rem;letter-spacing:1.8px;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.myloc-btn{display:flex;align-items:center;gap:9px;width:100%;padding:10px 13px;background:none;
+  border:none;border-bottom:1px solid var(--border);cursor:pointer;color:var(--cyan);font-family:var(--ui);font-size:.76rem;transition:background .12s}
+.myloc-btn:hover{background:var(--cyan-dim)}
+.ri{display:flex;align-items:flex-start;gap:9px;padding:9px 13px;cursor:pointer;border-bottom:1px solid var(--border);transition:background .12s}
+.ri:last-child{border-bottom:none}
+.ri:hover{background:rgba(0,229,255,.05)}
+.ri-pin{font-size:.9rem;flex-shrink:0;margin-top:1px}
+.ri-main{flex:1;min-width:0}
+.ri-name{font-weight:500;font-size:.78rem;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ri-sub{font-size:.62rem;color:var(--muted);margin-top:2px}
+.ri-type-tag{font-size:.55rem;color:var(--cyan);background:var(--cyan-dim);padding:1px 5px;border-radius:3px;flex-shrink:0;margin-top:2px;text-transform:capitalize}
+
+/* ─── MAP ─── */
+#map{position:absolute;top:76px;left:0;right:390px;bottom:0;z-index:100}
+.leaflet-popup-content-wrapper{background:var(--surface2)!important;color:var(--text)!important;
+  border:1px solid var(--border2)!important;border-radius:var(--r)!important;font-family:var(--ui)!important;font-size:.72rem!important;box-shadow:var(--shadow)!important}
+.leaflet-popup-tip{background:var(--surface2)!important}
+.leaflet-popup-content{margin:9px 13px!important;line-height:1.6!important}
+.leaflet-control-zoom a{background:var(--surface2)!important;color:var(--text)!important;border-color:var(--border2)!important}
+.leaflet-control-zoom a:hover{background:var(--border2)!important;color:var(--cyan)!important}
+.leaflet-control-attribution{display:none}
+
+/* ─── MAP LEGEND ─── */
+.map-legend{position:absolute;bottom:24px;left:16px;z-index:500;
+  background:rgba(11,18,32,.9);border:1px solid var(--border2);border-radius:var(--r);
+  padding:10px 13px;backdrop-filter:blur(10px)}
+.ml-title{font-size:.55rem;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:7px}
+.ml-row{display:flex;align-items:center;gap:7px;font-size:.62rem;color:var(--text);margin-bottom:4px}
+.ml-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+
+/* ─── MAP CONTROLS ─── */
+.map-ctrl-row{position:absolute;top:84px;right:400px;z-index:500;display:flex;gap:6px;padding:8px}
+.map-ctrl-btn{background:rgba(11,18,32,.9);border:1px solid var(--border2);border-radius:var(--rsm);
+  padding:6px 11px;font-size:.6rem;color:var(--muted);cursor:pointer;transition:all .2s;font-family:var(--ui)}
+.map-ctrl-btn:hover,.map-ctrl-btn.active{background:var(--cyan-dim);border-color:var(--cyan);color:var(--cyan)}
+
+/* ─── SIDEBAR ─── */
+.sidebar{position:absolute;top:76px;right:0;bottom:0;width:390px;
+  background:var(--surface);border-left:1px solid var(--border);overflow-y:auto;overflow-x:hidden;z-index:500}
+.sidebar::-webkit-scrollbar{width:3px}
+.sidebar::-webkit-scrollbar-thumb{background:var(--border2)}
+
+.sec{border-bottom:1px solid var(--border);padding:12px 14px}
+.sec-title{display:flex;align-items:center;gap:6px;font-size:.58rem;letter-spacing:2px;text-transform:uppercase;
+  color:var(--muted);font-weight:500;margin-bottom:10px}
+.sec-title .dot{width:5px;height:5px;border-radius:50%;background:var(--cyan);flex-shrink:0;animation:blink 2s ease-in-out infinite}
+.sec-title.or .dot{background:var(--orange)}
+.sec-title.re .dot{background:var(--red)}
+.sec-title.pu .dot{background:var(--purple)}
+.sec-title.ye .dot{background:var(--yellow)}
+.sec-title.gr .dot{background:var(--green)}
+
+/* ─── STATS DASHBOARD (section 1) ─── */
+.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:0}
+.stat-card{background:var(--bg);border:1px solid var(--border2);border-radius:var(--r);padding:11px 12px;position:relative;overflow:hidden}
+.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.stat-card.sc-cyan::before{background:var(--cyan)}
+.stat-card.sc-red::before{background:var(--red)}
+.stat-card.sc-orange::before{background:var(--orange)}
+.stat-card.sc-green::before{background:var(--green)}
+.sc-icon{font-size:1.1rem;margin-bottom:6px}
+.sc-v{font-family:var(--head);font-size:1.35rem;font-weight:800;line-height:1}
+.sc-l{font-size:.58rem;color:var(--muted);margin-top:3px}
+.sc-sub{font-size:.58rem;color:var(--cyan);margin-top:2px}
+.sc-sub.warn{color:var(--orange)}
+.sc-sub.crit{color:var(--red)}
+
+/* ─── STATUS CARD ─── */
+.scard{background:var(--bg);border:1px solid var(--border2);border-radius:var(--r);padding:13px}
+.loc-name{font-size:.65rem;color:var(--muted);margin-bottom:7px;display:flex;align-items:center;gap:5px}
+.dis-name{font-family:var(--head);font-size:1.45rem;font-weight:800;letter-spacing:-.5px;line-height:1;margin-bottom:9px}
+.risk-row{display:flex;align-items:center;gap:9px;margin-bottom:9px;flex-wrap:wrap}
+.rchip{padding:3px 9px;border-radius:4px;font-size:.58rem;font-weight:700;letter-spacing:1px}
+.rLOW{background:rgba(0,230,118,.1);color:var(--green);border:1px solid rgba(0,230,118,.25)}
+.rMEDIUM{background:rgba(245,197,24,.1);color:var(--yellow);border:1px solid rgba(245,197,24,.25)}
+.rHIGH{background:rgba(255,107,53,.1);color:var(--orange);border:1px solid rgba(255,107,53,.25)}
+.rCRITICAL{background:rgba(255,45,85,.12);color:var(--red);border:1px solid rgba(255,45,85,.3)}
+.conf-w{flex:1;min-width:100px}
+.conf-l{font-size:.56rem;color:var(--muted);margin-bottom:3px}
+.conf-bar{height:3px;background:var(--border2);border-radius:2px}
+.conf-fill{height:100%;background:linear-gradient(90deg,var(--cyan),var(--green));border-radius:2px;transition:width .7s}
+
+/* Risk score multibar */
+.risk-scores{display:grid;grid-template-columns:1fr;gap:5px;margin-top:10px}
+.rs-row{display:flex;align-items:center;gap:8px}
+.rs-label{font-size:.6rem;color:var(--muted);min-width:72px}
+.rs-bar{flex:1;height:6px;background:var(--border2);border-radius:3px;overflow:hidden}
+.rs-fill{height:100%;border-radius:3px;transition:width .8s}
+.rs-val{font-size:.6rem;min-width:32px;text-align:right;font-weight:700}
+
+/* Severity badge big */
+.severity-badge{display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border-radius:6px;margin-bottom:9px;font-size:.7rem;font-weight:700}
+
+/* ─── WEATHER ─── */
+.wdesc{font-size:.68rem;color:var(--muted);margin-bottom:9px;display:flex;align-items:center;gap:7px}
+.wgrid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.wc{background:var(--bg);border:1px solid var(--border);border-radius:var(--rsm);padding:8px 10px}
+.wc-l{font-size:.56rem;color:var(--muted);letter-spacing:.5px;margin-bottom:2px}
+.wc-v{font-family:var(--head);font-size:.88rem;font-weight:700}
+.wc-u{font-size:.58rem;color:var(--muted);font-family:var(--ui);font-weight:400}
+/* Wind compass */
+.wind-compass-row{display:flex;align-items:center;gap:10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--rsm);padding:8px 10px;margin-top:6px}
+.compass{width:38px;height:38px;border-radius:50%;border:1.5px solid var(--border2);position:relative;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.compass-n{position:absolute;top:3px;left:50%;transform:translateX(-50%);font-size:.45rem;color:var(--muted)}
+.compass-arrow{width:2px;height:14px;background:linear-gradient(to bottom,var(--red),transparent);border-radius:1px;transform-origin:bottom center;transition:transform .6s}
+.wind-info{flex:1}
+.wind-speed-big{font-family:var(--head);font-size:1rem;font-weight:800}
+.wind-dir-lbl{font-size:.6rem;color:var(--muted);margin-top:1px}
+
+/* ─── EARTHQUAKES ─── */
+.eqi{display:flex;align-items:center;gap:9px;background:var(--bg);border:1px solid var(--border);
+  border-radius:var(--rsm);padding:8px 11px;margin-bottom:5px;cursor:pointer;transition:border-color .15s}
+.eqi:hover{border-color:var(--orange)}
+.eqi:last-child{margin-bottom:0}
+.eqm{font-family:var(--head);font-size:.95rem;font-weight:800;min-width:32px;text-align:center}
+.eqi-info{flex:1;min-width:0}
+.eqi-place{font-size:.68rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.eqi-meta{font-size:.58rem;color:var(--muted);margin-top:2px}
+.eqi-depth{background:rgba(167,139,250,.1);border:1px solid rgba(167,139,250,.2);
+  padding:1px 6px;border-radius:3px;font-size:.55rem;color:var(--purple);flex-shrink:0}
+
+/* ─── WORLD RISKS ─── */
+.wri{display:flex;align-items:center;gap:9px;background:var(--bg);border:1px solid var(--border);
+  border-radius:var(--rsm);padding:9px 11px;margin-bottom:5px;cursor:pointer;transition:border-color .15s}
+.wri:hover{border-color:var(--orange)}
+.wri:last-child{margin-bottom:0}
+.wri-ico{font-size:1rem;flex-shrink:0}
+.wri-body{flex:1;min-width:0}
+.wri-type{font-weight:700;font-size:.76rem}
+.wri-loc{font-size:.62rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+.wri-det{font-size:.6rem;color:var(--dim);margin-top:1px}
+.wri-chip{padding:2px 7px;border-radius:3px;font-size:.55rem;font-weight:700;letter-spacing:.5px;flex-shrink:0;align-self:flex-start;margin-top:1px}
+.show-all{width:100%;margin-top:7px;background:none;border:1px dashed var(--border2);color:var(--cyan);
+  font-family:var(--ui);font-size:.68rem;padding:7px;border-radius:var(--rsm);cursor:pointer;transition:background .15s,border-color .15s}
+.show-all:hover{background:var(--cyan-dim);border-color:var(--cyan)}
+
+/* ─── FORECAST ─── */
+.fc-day{display:flex;align-items:center;gap:0;padding:7px 0;border-bottom:1px solid var(--border)}
+.fc-day:last-child{border-bottom:none}
+.fc-dn{font-size:.68rem;color:var(--muted);min-width:32px}
+.fc-dt{font-size:.58rem;color:var(--dim);min-width:28px}
+.fc-ic{font-size:.95rem;min-width:24px;text-align:center}
+.fc-mid{flex:1;padding:0 7px}
+.fc-info{font-size:.58rem;color:var(--muted);margin-bottom:3px}
+.fc-bar{height:4px;border-radius:2px;background:var(--border);overflow:hidden;margin-bottom:3px}
+.fc-fill{height:100%;border-radius:2px}
+.fc-tags{display:flex;flex-wrap:wrap;gap:3px}
+.fc-tag{padding:1px 5px;border-radius:3px;font-size:.52rem;font-weight:700;letter-spacing:.3px}
+.fc-tr{text-align:right;font-size:.68rem;white-space:nowrap;min-width:34px}
+.fc-hi{color:var(--orange);font-weight:600}
+.fc-lo{color:var(--muted)}
+
+/* ─── COMPARISON MODE ─── */
+.compare-wrap{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.cmp-card{background:var(--bg);border:1px solid var(--border2);border-radius:var(--r);padding:10px 12px}
+.cmp-city{font-family:var(--head);font-size:.82rem;font-weight:700;margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cmp-dis{font-size:.72rem;font-weight:700;margin-bottom:5px}
+.cmp-row{display:flex;justify-content:space-between;font-size:.58rem;color:var(--muted);padding:2px 0;border-bottom:1px solid var(--border)}
+.cmp-row:last-child{border-bottom:none}
+.cmp-val{color:var(--text);font-weight:500}
+.cmp-empty{text-align:center;font-size:.68rem;color:var(--muted);padding:14px 0;border:1px dashed var(--border2);border-radius:var(--rsm)}
+.cmp-btn{width:100%;margin-top:7px;background:rgba(0,229,255,.07);border:1px solid rgba(0,229,255,.2);
+  color:var(--cyan);border-radius:var(--rsm);padding:7px;font-family:var(--ui);font-size:.65rem;cursor:pointer;transition:all .2s}
+.cmp-btn:hover{background:rgba(0,229,255,.13)}
+
+/* ─── ALERT LOG ─── */
+.alog-item{display:flex;align-items:flex-start;gap:9px;padding:8px 0;border-bottom:1px solid var(--border)}
+.alog-item:last-child{border-bottom:none}
+.alog-icon{font-size:.95rem;flex-shrink:0;margin-top:1px}
+.alog-body{flex:1;min-width:0}
+.alog-title{font-size:.7rem;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.alog-meta{font-size:.58rem;color:var(--muted);margin-top:2px}
+.alog-chip{padding:1px 6px;border-radius:3px;font-size:.55rem;font-weight:700;flex-shrink:0;align-self:flex-start;margin-top:2px}
+
+/* ─── EVACUATION ROUTES ─── */
+.evac-card{background:var(--bg);border:1px solid var(--border);border-radius:var(--rsm);padding:9px 11px;margin-bottom:5px;display:flex;align-items:flex-start;gap:9px}
+.evac-icon{font-size:1rem;flex-shrink:0}
+.evac-body{flex:1;min-width:0}
+.evac-name{font-size:.72rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.evac-type{font-size:.6rem;color:var(--muted);margin-top:2px}
+.evac-dist{font-size:.6rem;color:var(--cyan);margin-top:2px}
+.evac-open{font-size:.55rem;padding:1px 6px;border-radius:3px;background:rgba(0,230,118,.1);
+  border:1px solid rgba(0,230,118,.2);color:var(--green);flex-shrink:0;margin-top:3px}
+
+/* ─── TOASTS ─── */
+#alerts{position:fixed;top:82px;left:50%;transform:translateX(-50%);
+  display:flex;flex-direction:column;gap:7px;z-index:9000;width:400px;max-width:90vw;pointer-events:none}
+.toast{background:var(--surface2);border-left:3px solid var(--red);border-radius:var(--r);
+  padding:11px 12px;box-shadow:var(--shadow);animation:tin .3s cubic-bezier(.2,.8,.4,1);
+  pointer-events:all;display:flex;gap:9px;align-items:flex-start}
+.toast.warn{border-color:var(--yellow)}
+.toast.info{border-color:var(--cyan)}
+@keyframes tin{from{transform:translateY(-12px);opacity:0}to{transform:none;opacity:1}}
+.t-body{flex:1}
+.t-title{font-weight:700;font-size:.74rem;margin-bottom:2px}
+.t-msg{font-size:.64rem;color:var(--muted);line-height:1.4}
+.t-close{background:none;border:none;cursor:pointer;color:var(--muted);padding:0 0 0 4px;font-size:.85rem}
+
+/* Misc */
+.empty{font-size:.68rem;color:var(--muted);text-align:center;padding:12px 0}
+.click-prompt{border:1px dashed var(--border2);border-radius:var(--r);padding:18px;
+  text-align:center;font-size:.68rem;color:var(--muted);line-height:1.8}
+.skeleton{background:linear-gradient(90deg,var(--border) 25%,var(--border2) 50%,var(--border) 75%);
+  background-size:200% 100%;animation:shim 1.5s infinite;border-radius:4px;height:13px}
+@keyframes shim{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+/* Auto-locate FAB */
+.geo-fab{position:absolute;bottom:80px;right:406px;z-index:500;
+  display:flex;align-items:center;gap:8px;
+  background:rgba(11,18,32,.95);
+  border:1.5px solid rgba(0,229,255,.35);
+  border-radius:50px;padding:9px 14px 9px 11px;
+  cursor:pointer;
+  box-shadow:0 4px 20px rgba(0,0,0,.5),0 0 0 0 rgba(0,229,255,0);
+  transition:all .25s;color:var(--text);font-family:var(--ui);
+  backdrop-filter:blur(12px)}
+.geo-fab:hover{background:rgba(0,229,255,.1);border-color:var(--cyan);
+  box-shadow:0 4px 20px rgba(0,0,0,.5),0 0 16px rgba(0,229,255,.2);
+  transform:translateY(-2px)}
+.geo-fab:active{transform:translateY(0) scale(.97)}
+.geo-fab-icon{font-size:1rem;flex-shrink:0;line-height:1}
+.geo-fab-text{display:flex;flex-direction:column;line-height:1.2}
+.geo-fab-label{font-size:.62rem;font-weight:600;color:var(--cyan);letter-spacing:.3px}
+.geo-fab-sub{font-size:.52rem;color:var(--muted);margin-top:1px}
+
+/* Loader */
+#loader{position:fixed;inset:0;background:var(--bg);z-index:99999;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;transition:opacity .5s}
+.ldr-logo{font-family:var(--head);font-size:2rem;font-weight:800;color:var(--cyan)}
+.ldr-sub{font-size:.6rem;letter-spacing:3px;color:var(--muted)}
+.ldr-track{width:180px;height:2px;background:var(--border);border-radius:1px;overflow:hidden}
+.ldr-fill{height:100%;background:var(--cyan);animation:lfill 1s ease forwards}
+@keyframes lfill{from{width:0}to{width:100%}}
+
+
+
+/* Future risk timeline */
+.fris-item{display:flex;align-items:center;gap:9px;padding:7px 0;border-bottom:1px solid var(--border)}
+.fris-item:last-child{border-bottom:none}
+.fris-time{font-size:.6rem;color:var(--muted);min-width:48px}
+.fris-type{font-size:.7rem;font-weight:700;flex:1}
+.fris-conf{font-size:.6rem;color:var(--cyan)}
+.fris-bar{height:3px;background:var(--border2);border-radius:1.5px;overflow:hidden;width:50px}
+.fris-fill{height:100%;background:var(--orange);border-radius:1.5px}
+
+/* Section expand/collapse */
+.sec-toggle{margin-left:auto;cursor:pointer;color:var(--muted);font-size:.65rem;transition:transform .2s;user-select:none}
+.sec-toggle.collapsed{transform:rotate(-90deg)}
+.collapsible{overflow:hidden;transition:max-height .3s ease}
+
+/* ─── AQI PANEL ─── */
+.aqi-main{display:flex;align-items:center;gap:14px;margin-bottom:9px}
+.aqi-ring{width:58px;height:58px;border-radius:50%;flex-shrink:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;border:3px solid;font-family:var(--head)}
+.aqi-num{font-size:1.1rem;font-weight:800;line-height:1}
+.aqi-lbl{font-size:.38rem;letter-spacing:1.8px;text-transform:uppercase;margin-top:2px;opacity:.75}
+.aqi-info{flex:1;min-width:0}
+.aqi-status{font-family:var(--head);font-size:.88rem;font-weight:700}
+.aqi-dominant{font-size:.58rem;color:var(--muted);margin-top:2px}
+.aqi-desc{font-size:.58rem;color:var(--muted);margin-top:4px;line-height:1.55}
+/* gauge */
+.aqi-gauge-wrap{margin:8px 0 10px}
+.aqi-gauge-labels{display:flex;justify-content:space-between;font-size:.46rem;
+  color:var(--muted);margin-bottom:3px;letter-spacing:.2px}
+.aqi-gauge-track{height:7px;border-radius:4px;position:relative;overflow:visible;
+  background:linear-gradient(90deg,#00e676 0%,#f5c518 20%,#ff6b35 30%,#ff2d55 40%,#a78bfa 60%,#7b0000 100%)}
+.aqi-gauge-needle{position:absolute;top:-4px;width:3px;height:15px;
+  background:#fff;border-radius:2px;transform:translateX(-50%);
+  box-shadow:0 0 6px rgba(255,255,255,.8);transition:left .8s cubic-bezier(.4,0,.2,1)}
+.aqi-sub-row{display:flex;gap:6px;margin-top:6px;font-size:.58rem}
+.aqi-sub-pill{flex:1;background:var(--bg);border:1px solid var(--border2);border-radius:var(--rsm);
+  padding:5px 7px;text-align:center}
+.aqi-sub-label{font-size:.5rem;color:var(--muted);margin-bottom:2px}
+.aqi-sub-val{font-family:var(--head);font-size:.8rem;font-weight:800}
+/* pollutant grid */
+.aqi-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;margin-top:8px}
+.aqi-cell{background:var(--bg);border:1px solid var(--border);border-radius:var(--rsm);padding:6px 8px;text-align:center;transition:border-color .2s}
+.aqi-cell-l{font-size:.5rem;color:var(--muted);letter-spacing:.3px}
+.aqi-cell-v{font-family:var(--head);font-size:.76rem;font-weight:700;margin-top:2px}
+.aqi-cell-u{font-size:.44rem;color:var(--muted);font-weight:400;margin-left:1px}
+
+/* ─── TSUNAMI PANEL ─── */
+.tsunami-card{border-radius:var(--r);padding:11px 13px;display:flex;align-items:center;gap:11px}
+.tsunami-card.NONE{background:rgba(0,230,118,.05);border:1px solid rgba(0,230,118,.2)}
+.tsunami-card.LOW{background:rgba(245,197,24,.06);border:1px solid rgba(245,197,24,.25)}
+.tsunami-card.MEDIUM{background:rgba(255,107,53,.08);border:1px solid rgba(255,107,53,.3)}
+.tsunami-card.HIGH{background:rgba(255,45,85,.1);border:1px solid rgba(255,45,85,.35);animation:tsPulse 2s ease-in-out infinite}
+@keyframes tsPulse{0%,100%{box-shadow:0 0 0 0 rgba(255,45,85,0)}50%{box-shadow:0 0 12px 2px rgba(255,45,85,.25)}}
+.tsunami-icon{font-size:1.6rem;flex-shrink:0}
+.tsunami-body{flex:1}
+.tsunami-level{font-family:var(--head);font-size:.9rem;font-weight:800}
+.tsunami-reason{font-size:.62rem;color:var(--muted);margin-top:3px;line-height:1.5}
+
+/* ─── MANUAL PREDICT TOOL ─── */
+.mpred-form{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px}
+.mpred-field{display:flex;flex-direction:column;gap:3px}
+.mpred-field label{font-size:.52rem;color:var(--muted);letter-spacing:.5px;text-transform:uppercase}
+.mpred-field input{background:rgba(255,255,255,.03);border:1px solid var(--border2);border-radius:var(--rsm);
+  padding:7px 9px;font-size:.74rem;color:var(--text);font-family:var(--ui);outline:none;transition:border-color .2s}
+.mpred-field input:focus{border-color:rgba(0,229,255,.5);background:rgba(0,229,255,.04)}
+.mpred-btn{width:100%;background:linear-gradient(135deg,rgba(0,229,255,.12),rgba(0,229,255,.06));
+  border:1px solid rgba(0,229,255,.3);border-radius:var(--r);padding:9px;color:var(--cyan);
+  font-family:var(--ui);font-size:.72rem;font-weight:600;cursor:pointer;letter-spacing:.5px;transition:all .2s}
+.mpred-btn:hover{background:linear-gradient(135deg,rgba(0,229,255,.2),rgba(0,229,255,.1));transform:translateY(-1px)}
+.mpred-result{background:var(--bg);border:1px solid var(--border2);border-radius:var(--r);padding:10px 12px;
+  display:flex;align-items:center;gap:10px;margin-top:7px}
+.mpred-res-icon{font-size:1.4rem;flex-shrink:0}
+.mpred-res-name{font-family:var(--head);font-size:.95rem;font-weight:800}
+.mpred-res-conf{font-size:.62rem;color:var(--muted);margin-top:2px}
+
+/* ─── HISTORY CHART ─── */
+.hchart-wrap{overflow-x:auto;padding-bottom:4px}
+.hchart-wrap::-webkit-scrollbar{height:3px}
+.hchart-wrap::-webkit-scrollbar-thumb{background:var(--border2)}
+.hchart-svg{display:block}
+.hchart-tabs{display:flex;gap:5px;margin-bottom:8px}
+.hchart-tab{background:none;border:1px solid var(--border2);border-radius:20px;padding:3px 10px;
+  font-size:.58rem;color:var(--muted);cursor:pointer;font-family:var(--ui);transition:all .15s}
+.hchart-tab.active{background:var(--cyan-dim);border-color:var(--cyan);color:var(--cyan)}
+
+/* ─── EXPORT TOOLBAR ─── */
+.export-bar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:8px 0 2px}
+.exp-btn{display:flex;align-items:center;gap:5px;background:rgba(255,255,255,.04);
+  border:1px solid var(--border2);border-radius:var(--rsm);padding:6px 11px;
+  font-size:.62rem;color:var(--text);font-family:var(--ui);cursor:pointer;transition:all .15s}
+.exp-btn:hover{background:rgba(0,229,255,.08);border-color:rgba(0,229,255,.35);color:var(--cyan)}
+.exp-btn .exp-ico{font-size:.85rem}
+.exp-share{margin-left:auto}
+
+/* ─── WEATHER EXTENDED ─── */
+.wext-row{display:flex;gap:6px;margin-top:6px}
+.wext-pill{flex:1;background:var(--bg);border:1px solid var(--border);border-radius:var(--rsm);
+  padding:6px 8px;text-align:center}
+.wext-pill-l{font-size:.5rem;color:var(--muted);letter-spacing:.3px}
+.wext-pill-v{font-size:.72rem;font-weight:600;margin-top:1px}
+
+/* ─── SECTION HEADER BADGE ─── */
+.sec-badge{margin-left:6px;padding:1px 6px;border-radius:3px;font-size:.5rem;font-weight:700;
+  letter-spacing:.5px;background:rgba(0,229,255,.1);color:var(--cyan);border:1px solid rgba(0,229,255,.2)}
+.sec-badge.new{background:rgba(0,230,118,.1);color:var(--green);border-color:rgba(0,230,118,.2)}
+</style>
+</head>
+<body>
+
+<div id="loader">
+  <div class="ldr-logo">⚡ DisasterSense</div>
+  <div class="ldr-sub">INITIALIZING REAL-TIME MONITORING</div>
+  <div class="ldr-track"><div class="ldr-fill"></div></div>
+</div>
+
+<div id="alerts"></div>
+
+<!-- ══════════════════════════════════════════ -->
+<!-- TICKER (Point 1) -->
+<!-- ══════════════════════════════════════════ -->
+<div id="ticker-bar">
+  <div class="ticker-label"><div class="td"></div> LIVE ALERTS</div>
+  <div class="ticker-wrap">
+    <div class="ticker-track" id="ticker-track">
+      <!-- filled dynamically, doubled for seamless loop -->
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════ -->
+<!-- HEADER -->
+<!-- ══════════════════════════════════════════ -->
+<header>
+  <div class="logo">🌍 Disaster<span class="logo-accent">Sense</span></div>
+
+  <!-- Center stats pills (Point 9) -->
+  <div class="hdr-center" id="hdr-stats">
+    <div class="hdr-stat-pill" title="Predictions today">🤖 Predictions: <span class="hsp-v" id="hs-predictions">0</span></div>
+    <div class="hdr-stat-pill" title="Alerts triggered">⚠️ Alerts: <span class="hsp-v warn" id="hs-alerts">0</span></div>
+    <div class="hdr-stat-pill" title="Highest risk zone">🔥 Highest: <span class="hsp-v crit" id="hs-zone">—</span></div>
+    <div class="hdr-stat-pill" title="Active monitored locations">📍 Monitored: <span class="hsp-v" id="hs-locations">0</span></div>
+  </div>
+
+  <div class="hdr-r">
+    <div class="live-badge"><div class="live-dot"></div><span class="live-txt">LIVE</span></div>
+    <span id="clock">--:--:-- UTC</span>
+
+    <div id="acct-logged" style="position:relative;display:none;">
+      <div class="acct-btn" id="acct-btn" onclick="toggleDropdown()">
+        <div class="acct-avatar" id="hdr-avatar">?</div>
+        <span class="acct-name" id="hdr-name">User</span>
+        <span class="acct-chevron">▼</span>
+      </div>
+      <div class="acct-dropdown" id="acct-dropdown">
+        <div class="drop-profile">
+          <div class="drop-avatar" id="drop-avatar">?</div>
+          <div class="drop-info">
+            <div class="drop-name" id="drop-name">User</div>
+            <div class="drop-email" id="drop-email">—</div>
+            <div class="drop-badge">✅ Signed In</div>
+          </div>
+        </div>
+        <div class="drop-menu">
+          <button class="drop-item" onclick="openProfile()"><span class="drop-icon">👤</span><span class="drop-label">My Profile</span><span class="drop-arrow">›</span></button>
+          <div class="notif-toggle" onclick="toggleNotif()">
+            <div class="notif-left"><span class="drop-icon">🔔</span><div><div class="notif-lbl">Push Notifications</div><div class="notif-sub">Hourly alerts &amp; disasters</div></div></div>
+            <div class="tog" id="notif-tog"></div>
+          </div>
+          <button class="drop-item" onclick="openProfile()"><span class="drop-icon">⚙️</span><span class="drop-label">Account Settings</span><span class="drop-arrow">›</span></button>
+          <div class="drop-sep"></div>
+          <button class="drop-item danger" onclick="handleLogout()"><span class="drop-icon">🚪</span><span class="drop-label">Sign Out</span></button>
+        </div>
+      </div>
+    </div>
+    <div id="acct-guest" style="display:none;">
+      <div class="guest-badge" onclick="window.location.href='/auth'">
+        <span>👤 Guest</span>
+        <button class="guest-login-btn">Sign In</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- Profile Panel -->
+<div class="profile-overlay" id="profile-overlay" onclick="closeProfile()"></div>
+<div class="profile-panel" id="profile-panel">
+  <div style="position:relative">
+    <div class="pp-header">
+      <div class="pp-avatar" id="pp-avatar">?</div>
+      <div class="pp-info">
+        <div class="pp-name" id="pp-name">User</div>
+        <div class="pp-email" id="pp-email">—</div>
+        <div class="pp-since" id="pp-since">Session active</div>
+      </div>
+      <div class="pp-close" onclick="closeProfile()">✕</div>
+    </div>
+    <div class="pp-sec">
+      <div class="pp-sec-title">Usage Stats</div>
+      <div class="pp-stat-row">
+        <div class="pp-stat"><div class="pp-stat-v" id="pp-stat-sessions">1</div><div class="pp-stat-l">Sessions</div></div>
+        <div class="pp-stat"><div class="pp-stat-v" id="pp-stat-alerts">0</div><div class="pp-stat-l">Alerts</div></div>
+        <div class="pp-stat"><div class="pp-stat-v" id="pp-stat-locs">0</div><div class="pp-stat-l">Locations</div></div>
+      </div>
+    </div>
+    <div class="pp-sec">
+      <div class="pp-sec-title">Profile</div>
+      <div class="pp-field"><label>DISPLAY NAME</label><input type="text" id="pp-input-name" placeholder="Your name"/></div>
+      <div class="pp-field"><label>EMAIL / PHONE</label><input type="text" id="pp-input-email" readonly/></div>
+      <div class="pp-field"><label>USER ID</label><input type="text" id="pp-input-uid" readonly/></div>
+    </div>
+    <div class="pp-sec">
+      <div class="pp-sec-title">Notifications</div>
+      <div class="pp-notif-row"><div class="pp-notif-info"><div class="pp-notif-title">🌊 Disaster Alerts</div><div class="pp-notif-sub">Critical &amp; high risk events</div></div><div class="tog" id="pp-tog-disaster" onclick="togglePPNotif('disaster')"></div></div>
+      <div class="pp-notif-row"><div class="pp-notif-info"><div class="pp-notif-title">🕐 Hourly Weather</div><div class="pp-notif-sub">Weather updates every hour</div></div><div class="tog" id="pp-tog-hourly" onclick="togglePPNotif('hourly')"></div></div>
+    </div>
+    <div class="pp-sec">
+      <div class="pp-sec-title">Sign-In Provider</div>
+      <div class="pp-provider-row"><span class="pp-provider-icon" id="pp-provider-icon">🔵</span><div class="pp-provider-info"><div class="pp-provider-name" id="pp-provider-name">Google Account</div><div class="pp-provider-sub">Connected &amp; Verified</div></div><span class="pp-provider-check">✓</span></div>
+    </div>
+    <div class="pp-sec" style="border:none">
+      <button class="pp-btn pp-btn-primary" onclick="saveProfile()">💾 Save Changes</button>
+      <button class="pp-btn pp-btn-danger" onclick="handleLogout()">🚪 Sign Out</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════ -->
+<!-- SEARCH BAR (Point 12 included) -->
+<!-- ══════════════════════════════════════════ -->
+<div class="search-bar">
+  <div class="search-label">🗺️ Search Location</div>
+  <div class="search-box" id="sbox">
+    <span class="s-icon">🔍</span>
+    <input id="sinput" type="text" placeholder="Search city, region, country…" autocomplete="off"/>
+    <div class="s-divider"></div>
+    <div class="s-btns">
+      <button class="iBtn" onclick="clearSearch()" title="Clear">✕</button>
+    </div>
+  </div>
+  <div id="sdrop">
+    <div class="sec-lbl">Quick Actions</div>
+    <button class="myloc-btn" onclick="useMyLocation()">📍 Use My Current Location</button>
+    <div class="sec-lbl">Results</div>
+    <div id="sresults"></div>
+  </div>
+</div>
+
+<!-- Map layer controls -->
+<div class="map-ctrl-row">
+  <button class="map-ctrl-btn active" id="btn-eq"      onclick="toggleLayer('eq',this)">🔴 Earthquakes</button>
+  <button class="map-ctrl-btn active" id="btn-flood"   onclick="toggleLayer('flood',this)">🌊 Floods</button>
+  <button class="map-ctrl-btn active" id="btn-cyclone" onclick="toggleLayer('cyclone',this)">🌀 Cyclones</button>
+  <button class="map-ctrl-btn active" id="btn-hm"      onclick="toggleLayer('hm',this)">🌡️ Heatmap</button>
+</div>
+
+<!-- Auto-locate FAB (Point 12) -->
+<button class="geo-fab" onclick="useMyLocation()" title="Detect my location">
+  <span class="geo-fab-icon">📍</span>
+  <div class="geo-fab-text">
+    <span class="geo-fab-label">Locate Me</span>
+    <span class="geo-fab-sub">Auto-detect location</span>
+  </div>
+</button>
+
+<!-- Map Legend (Point 2) -->
+<div class="map-legend" id="map-legend">
+  <div class="ml-title">Map Legend</div>
+  <div class="ml-row"><div class="ml-dot" style="background:#ff2d55"></div> M ≥ 6.5 Earthquake</div>
+  <div class="ml-row"><div class="ml-dot" style="background:#ff6b35"></div> M 5–6.5 Earthquake</div>
+  <div class="ml-row"><div class="ml-dot" style="background:#f5c518"></div> M 4.5–5 Earthquake</div>
+  <div class="ml-row"><div class="ml-dot" style="background:#00c8e6;border:1px dashed #00c8e6"></div> Active Flood (GDACS)</div>
+  <div class="ml-row"><div class="ml-dot" style="background:transparent;border:2px dashed #a78bfa"></div> Active Cyclone (GDACS)</div>
+  <div class="ml-row"><div class="ml-dot" style="background:rgba(255,107,53,.4);border:1.5px solid #ff6b35"></div> Risk Zone Heatmap</div>
+  <div class="ml-row"><div class="ml-dot" style="background:#00e5ff"></div> Selected Location</div>
+</div>
+
+<!-- MAP -->
+<div id="map"></div>
+
+<!-- ══════════════════════════════════════════ -->
+<!-- SIDEBAR -->
+<!-- ══════════════════════════════════════════ -->
+<div class="sidebar">
+
+  <!-- ── SECTION 9: Stats Dashboard ── -->
+  <div class="sec">
+    <div class="sec-title gr"><div class="dot"></div> Platform Statistics</div>
+    <div class="stats-grid">
+      <div class="stat-card sc-cyan">
+        <div class="sc-icon">🤖</div>
+        <div class="sc-v" id="stat-predictions">0</div>
+        <div class="sc-l">Total Predictions</div>
+        <div class="sc-sub" id="stat-pred-sub">Today: 0</div>
+      </div>
+      <div class="stat-card sc-red">
+        <div class="sc-icon">🚨</div>
+        <div class="sc-v" id="stat-alerts-count">0</div>
+        <div class="sc-l">Alerts Triggered</div>
+        <div class="sc-sub warn" id="stat-alerts-sub">This session</div>
+      </div>
+      <div class="stat-card sc-orange">
+        <div class="sc-icon">🌍</div>
+        <div class="sc-v" id="stat-highest">—</div>
+        <div class="sc-l">Highest Risk Zone</div>
+        <div class="sc-sub crit" id="stat-highest-sub">No data yet</div>
+      </div>
+      <div class="stat-card sc-green">
+        <div class="sc-icon">📍</div>
+        <div class="sc-v" id="stat-monitored">0</div>
+        <div class="sc-l">Locations Checked</div>
+        <div class="sc-sub" id="stat-mon-sub">Unique locations</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SECTION: Location + Disaster Status ── -->
+  <div class="sec">
+    <div class="sec-title"><div class="dot"></div> Current Disaster Status</div>
+    <div id="p-status"><div class="click-prompt">🗺️ Click anywhere on the map<br/>or search for a city<br/><small>to begin real-time monitoring</small></div></div>
+  </div>
+
+  <!-- ── SECTION: Weather ── -->
+  <div class="sec">
+    <div class="sec-title or"><div class="dot"></div> Present Weather</div>
+    <div id="p-weather"><div class="empty">Select a location to view weather</div></div>
+  </div>
+
+  <!-- ── SECTION: Air Quality Index (NEW) ── -->
+  <div class="sec">
+    <div class="sec-title" style="color:var(--green)">
+      <div class="dot" style="background:var(--green)"></div> Air Quality Index
+      <span class="sec-badge new">LIVE</span>
+      <span class="sec-toggle" id="aqi-toggle" onclick="toggleSec('aqi-body','aqi-toggle')">▼</span>
+    </div>
+    <div id="aqi-body">
+      <div id="p-aqi"><div class="empty">Select a location to view AQI</div></div>
+    </div>
+  </div>
+
+  <!-- ── SECTION: Tsunami Warning (NEW) ── -->
+  <div class="sec">
+    <div class="sec-title re"><div class="dot"></div> Tsunami Warning System
+      <span class="sec-badge">SEISMIC</span>
+      <span class="sec-toggle" id="ts-toggle" onclick="toggleSec('ts-body','ts-toggle')">▼</span>
+    </div>
+    <div id="ts-body">
+      <div id="p-tsunami"><div class="empty">Select a location to evaluate tsunami risk</div></div>
+    </div>
+  </div>
+
+  <!-- ── SECTION: 7-Day Forecast Risk ── -->
+  <div class="sec">
+    <div class="sec-title ye"><div class="dot"></div> 7-Day Forecast Risk Calendar
+      <span class="sec-toggle" id="fc-toggle" onclick="toggleSec('fc-body','fc-toggle')">▼</span>
+    </div>
+    <div id="fc-body">
+      <div id="p-forecast"><div class="empty">Select a location to view forecast</div></div>
+    </div>
+  </div>
+
+  <!-- ── SECTION: Future Risk Timeline ── -->
+  <div class="sec">
+    <div class="sec-title re"><div class="dot"></div> Upcoming Risk Timeline (Next 24h)
+      <span class="sec-toggle" id="fut-toggle" onclick="toggleSec('fut-body','fut-toggle')">▼</span>
+    </div>
+    <div id="fut-body">
+      <div id="p-future"><div class="empty">Select a location to view risk timeline</div></div>
+    </div>
+  </div>
+
+  <!-- ── SECTION: History Chart (NEW) ── -->
+  <div class="sec">
+    <div class="sec-title pu"><div class="dot"></div> Historical Risk Chart
+      <span class="sec-badge new">NEW</span>
+      <span class="sec-toggle" id="hist-toggle" onclick="toggleSec('hist-body','hist-toggle')">▼</span>
+    </div>
+    <div id="hist-body">
+      <div id="p-history"><div class="empty">Monitor a location to build history</div></div>
+    </div>
+  </div>
+
+  <!-- ── SECTION: Earthquakes ── -->
+  <div class="sec">
+    <div class="sec-title pu"><div class="dot"></div> Seismic Activity (500km radius)
+      <span class="sec-toggle" id="eq-toggle" onclick="toggleSec('eq-body','eq-toggle')">▼</span>
+    </div>
+    <div id="eq-body">
+      <div id="p-eq"><div class="empty">Select a location to load earthquake data</div></div>
+    </div>
+  </div>
+
+  <!-- ── SECTION: Manual Prediction Tool (NEW) ── -->
+  <div class="sec">
+    <div class="sec-title" style="color:var(--purple)">
+      <div class="dot" style="background:var(--purple)"></div> Manual Prediction Tool
+      <span class="sec-badge new">ML</span>
+      <span class="sec-toggle" id="mp-toggle" onclick="toggleSec('mp-body','mp-toggle')">▼</span>
+    </div>
+    <div id="mp-body">
+      <div class="mpred-form">
+        <div class="mpred-field"><label>Rainfall (mm/h)</label><input type="number" id="mp-rain" placeholder="0" min="0" step="0.1"/></div>
+        <div class="mpred-field"><label>Magnitude</label><input type="number" id="mp-mag" placeholder="0.0" min="0" max="10" step="0.1"/></div>
+        <div class="mpred-field"><label>Wind (km/h)</label><input type="number" id="mp-wind" placeholder="0" min="0" step="1"/></div>
+        <div class="mpred-field"><label>Lat / Lon (auto)</label><input type="text" id="mp-coords" placeholder="Select map location" readonly/></div>
+      </div>
+      <button class="mpred-btn" onclick="runManualPredict()">🤖 Run ML Prediction</button>
+      <div id="mp-result" style="display:none"></div>
+    </div>
+  </div>
+
+  <!-- ── SECTION: Export & Share (NEW) ── -->
+  <div class="sec">
+    <div class="sec-title gr"><div class="dot"></div> Export & Share Data
+      <span class="sec-badge new">NEW</span>
+    </div>
+    <div class="export-bar">
+      <button class="exp-btn" onclick="exportData('json')" title="Download JSON"><span class="exp-ico">📦</span> JSON</button>
+      <button class="exp-btn" onclick="exportData('csv')"  title="Download CSV"><span class="exp-ico">📊</span> CSV</button>
+      <button class="exp-btn" onclick="printReport()"      title="Print report"><span class="exp-ico">🖨️</span> Print</button>
+      <button class="exp-btn exp-share" onclick="shareLocation()" title="Share this location"><span class="exp-ico">🔗</span> Share</button>
+    </div>
+    <div style="font-size:.58rem;color:var(--muted);margin-top:5px">Exports current location's monitoring data & history</div>
+  </div>
+
+  <!-- ── SECTION: Alert History Log ── -->
+  <div class="sec">
+    <div class="sec-title re"><div class="dot"></div> Alert History Log
+      <span class="sec-toggle" id="log-toggle" onclick="toggleLog()">▼</span>
+    </div>
+    <div id="p-log-wrap">
+      <div id="p-log"><div class="empty">No alerts recorded yet</div></div>
+    </div>
+  </div>
+
+  <!-- ── SECTION: Comparison Mode ── -->
+  <div class="sec">
+    <div class="sec-title"><div class="dot"></div> City Comparison Mode
+      <span class="sec-toggle" id="cmp-toggle" onclick="toggleSec('cmp-body','cmp-toggle')">▼</span>
+    </div>
+    <div id="cmp-body">
+      <div class="compare-wrap">
+        <div>
+          <div class="cmp-card" id="cmp-a"><div class="cmp-empty">Click map<br/>to set City A</div></div>
+          <button class="cmp-btn" onclick="setCmpA()">📍 Set as City A</button>
+        </div>
+        <div>
+          <div class="cmp-card" id="cmp-b"><div class="cmp-empty">Click map<br/>to set City B</div></div>
+          <button class="cmp-btn" onclick="setCmpB()">📍 Set as City B</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SECTION: Nearby Safety Resources ── -->
+  <div class="sec">
+    <div class="sec-title gr"><div class="dot"></div> Nearby Safety Resources
+      <span class="sec-toggle" id="evac-toggle" onclick="toggleSec('evac-body','evac-toggle')">▼</span>
+    </div>
+    <div id="evac-body">
+      <div id="p-evac"><div class="empty">Select a location to view nearby shelters &amp; hospitals</div></div>
+    </div>
+  </div>
+
+  <!-- ── SECTION: Global Active Risks ── -->
+  <div class="sec">
+    <div class="sec-title or"><div class="dot"></div> Global Active Risks
+      <span class="sec-toggle" id="world-toggle" onclick="toggleSec('world-body','world-toggle')">▼</span>
+    </div>
+    <div id="world-body">
+      <div id="p-world"><div class="empty">Loading global data…</div></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- JAVASCRIPT -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<script>
+const API = '/api';
+let map, locMarker, refreshTimer, curLat = null, curLon = null;
+let currentUser = null;
+let worldData = [], showAll = false;
+let alertLog = [];
+let cmpA = null, cmpB = null;
+let eqLayerGroup = null, hmLayerGroup = null, floodLayerGroup = null, cycloneLayerGroup = null;
+let layerState = { eq: true, hm: true, flood: true, cyclone: true };
+let sessionPredictions = 0, sessionAlerts = 0, sessionLocs = new Set();
+let highestZone = { city: '—', level: 'LOW' };
+
+/* ════════ CLOCK ════════ */
+function tick() {
+  const now = new Date();
+  const h = String(now.getUTCHours()).padStart(2,'0');
+  const m = String(now.getUTCMinutes()).padStart(2,'0');
+  const s = String(now.getUTCSeconds()).padStart(2,'0');
+  document.getElementById('clock').textContent = `${h}:${m}:${s} UTC`;
+}
+setInterval(tick, 1000); tick();
+
+/* ════════ LOAD USER ════════ */
+function loadUser() {
+  const stored = localStorage.getItem('dw_user');
+  if (stored) { try { currentUser = JSON.parse(stored); } catch { currentUser = null; } }
+  if (currentUser) { renderUserUI(currentUser); } else {
+    document.getElementById('acct-guest').style.display = 'flex';
+    document.getElementById('acct-logged').style.display = 'none';
+  }
+}
+
+function renderUserUI(user) {
+  document.getElementById('acct-logged').style.display = 'block';
+  document.getElementById('acct-guest').style.display = 'none';
+  const name = user.name || user.email || 'User';
+  const initials = name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0,2);
+  const photo = user.photoURL || null;
+  ['hdr-avatar','drop-avatar','pp-avatar'].forEach(id => {
+    const el = document.getElementById(id);
+    el.innerHTML = photo ? `<img src="${photo}" alt=""/>` : initials;
+  });
+  document.getElementById('hdr-name').textContent = name.split(' ')[0];
+  document.getElementById('drop-name').textContent = name;
+  document.getElementById('drop-email').textContent = user.email || user.phone || '—';
+  const tog = document.getElementById('notif-tog');
+  if (user.notifications) tog.classList.add('on'); else tog.classList.remove('on');
+  document.getElementById('pp-name').textContent = name;
+  document.getElementById('pp-email').textContent = user.email || user.phone || '—';
+  document.getElementById('pp-since').textContent = 'Session active · DisasterSense';
+  document.getElementById('pp-input-name').value = name;
+  document.getElementById('pp-input-email').value = user.email || user.phone || '—';
+  document.getElementById('pp-input-uid').value = user.uid ? user.uid.slice(0,20) + '…' : '—';
+  const isPhone = !user.email || user.email?.includes('+');
+  document.getElementById('pp-provider-icon').textContent = isPhone ? '📱' : '🔵';
+  document.getElementById('pp-provider-name').textContent = isPhone ? 'Phone Number' : 'Google Account';
+  if (user.notifications) {
+    document.getElementById('pp-tog-disaster').classList.add('on');
+    document.getElementById('pp-tog-hourly').classList.add('on');
+  }
+  const stats = JSON.parse(localStorage.getItem('dw_stats') || '{"sessions":1,"alerts":0,"locs":0}');
+  stats.sessions = (stats.sessions || 0) + 1;
+  localStorage.setItem('dw_stats', JSON.stringify(stats));
+  document.getElementById('pp-stat-sessions').textContent = stats.sessions;
+  document.getElementById('pp-stat-alerts').textContent = stats.alerts || 0;
+  document.getElementById('pp-stat-locs').textContent = stats.locs || 0;
+}
+
+/* ════════ DROPDOWN ════════ */
+function toggleDropdown() {
+  const btn = document.getElementById('acct-btn');
+  const drop = document.getElementById('acct-dropdown');
+  const isOpen = drop.classList.contains('visible');
+  drop.classList.toggle('visible', !isOpen);
+  btn.classList.toggle('open', !isOpen);
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('#acct-logged')) {
+    document.getElementById('acct-dropdown')?.classList.remove('visible');
+    document.getElementById('acct-btn')?.classList.remove('open');
+  }
+});
+function toggleNotif() {
+  const tog = document.getElementById('notif-tog');
+  const isOn = tog.classList.toggle('on');
+  if (currentUser) { currentUser.notifications = isOn; localStorage.setItem('dw_user', JSON.stringify(currentUser)); }
+  if (isOn && 'Notification' in window) {
+    Notification.requestPermission().then(p => {
+      if (p === 'granted' && 'serviceWorker' in navigator) navigator.serviceWorker.register('/static/sw.js').catch(() => {});
+      toast('🔔 Notifications On', 'You will receive disaster alerts.', 'info');
+    });
+  } else { toast('🔕 Notifications Off', 'Push alerts disabled.', 'warn', 4000); }
+}
+function openProfile() {
+  document.getElementById('acct-dropdown').classList.remove('visible');
+  document.getElementById('acct-btn').classList.remove('open');
+  document.getElementById('profile-overlay').classList.add('visible');
+  document.getElementById('profile-panel').classList.add('visible');
+}
+function closeProfile() {
+  document.getElementById('profile-overlay').classList.remove('visible');
+  document.getElementById('profile-panel').classList.remove('visible');
+}
+function togglePPNotif(type) { document.getElementById(`pp-tog-${type}`).classList.toggle('on'); }
+function saveProfile() {
+  const newName = document.getElementById('pp-input-name').value.trim();
+  if (currentUser && newName) { currentUser.name = newName; localStorage.setItem('dw_user', JSON.stringify(currentUser)); renderUserUI(currentUser); toast('✅ Saved', 'Profile updated.', 'info', 3000); setTimeout(closeProfile, 800); }
+}
+function handleLogout() {
+  if (!confirm('Sign out of DisasterSense?')) return;
+  localStorage.removeItem('dw_user'); localStorage.removeItem('dw_stats');
+  window.location.href = '/api/auth/logout';
+}
+
+/* ════════ MAP ════════ */
+function initMap() {
+  map = L.map('map', { zoomControl: false, attributionControl: false }).setView([20, 0], 2);
+  const dark = L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png', { maxZoom: 20 });
+  const fallback = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 20, subdomains: 'abcd' });
+  dark.addTo(map);
+  dark.on('tileerror', () => { map.removeLayer(dark); fallback.addTo(map); });
+  L.control.zoom({ position: 'bottomright' }).addTo(map);
+  eqLayerGroup      = L.layerGroup().addTo(map);
+  hmLayerGroup      = L.layerGroup().addTo(map);
+  floodLayerGroup   = L.layerGroup().addTo(map);
+  cycloneLayerGroup = L.layerGroup().addTo(map);
+  map.on('click', e => selectLoc(e.latlng.lat, e.latlng.lng));
+  loadGlobalEq();
+  loadWorldRisks();
+  setTimeout(() => {
+    const el = document.getElementById('loader');
+    el.style.opacity = '0'; setTimeout(() => el.style.display = 'none', 500);
+  }, 1000);
+}
+
+/* ════════ LAYER TOGGLES (Point 2) ════════ */
+function toggleLayer(name, btn) {
+  layerState[name] = !layerState[name];
+  btn.classList.toggle('active', layerState[name]);
+  const groups = { eq: eqLayerGroup, hm: hmLayerGroup, flood: floodLayerGroup, cyclone: cycloneLayerGroup };
+  const grp = groups[name];
+  if (grp) { if (layerState[name]) grp.addTo(map); else map.removeLayer(grp); }
+}
+
+function loadGlobalEq() {
+  fetch(`${API}/earthquakes/global`).then(r => r.json()).then(d => {
+    eqLayerGroup.clearLayers();
+    (d.quakes || []).forEach(q => {
+      const r = Math.min(q.magnitude * 4, 25);
+      const c = q.magnitude >= 6.5 ? '#ff2d55' : q.magnitude >= 5 ? '#ff6b35' : '#f5c518';
+      L.circleMarker([q.lat, q.lon], { radius: r, color: c, fillColor: c, fillOpacity: .3, weight: 1.5 })
+        .addTo(eqLayerGroup).bindPopup(`<b>M${q.magnitude}</b><br/>${q.place}`);
+    });
+  }).catch(() => {});
+}
+
+/* ════════ WORLD RISKS + TICKER — Live GDACS + USGS ════════ */
+async function loadWorldRisks() {
+  floodLayerGroup.clearLayers();
+  cycloneLayerGroup.clearLayers();
+
+  // ── 1. Real earthquakes from USGS (last 3 days, M5+) ──────────────────────
+  let eqRisks = [];
+  try {
+    const since = new Date(Date.now() - 86400000 * 3).toISOString().split('T')[0];
+    const r = await fetch(
+      `https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&minmagnitude=5.0&orderby=magnitude&limit=15&starttime=${since}`,
+      { signal: AbortSignal.timeout(10000) }
+    );
+    const d = await r.json();
+    eqRisks = (d.features || []).map(f => ({
+      type:     f.properties.mag >= 7 ? 'Major Earthquake' : 'Earthquake',
+      icon:     '🔴',
+      location: f.properties.place || 'Unknown',
+      detail:   `M${f.properties.mag}`,
+      level:    f.properties.mag >= 7 ? 'CRITICAL' : f.properties.mag >= 6 ? 'HIGH' : 'MEDIUM',
+      lat:  f.geometry.coordinates[1],
+      lon:  f.geometry.coordinates[0],
+      kind: 'eq',
+    }));
+  } catch(e) { console.warn('USGS fetch failed:', e); }
+
+  // ── 2. Real cyclones + floods from GDACS RSS (via CORS proxy) ─────────────
+  let gdacsRisks = [];
+  try {
+    const proxy   = 'https://api.allorigins.win/get?url=' + encodeURIComponent('https://www.gdacs.org/xml/rss.xml');
+    const res     = await fetch(proxy, { signal: AbortSignal.timeout(12000) });
+    const json    = await res.json();
+    const xml     = new DOMParser().parseFromString(json.contents, 'text/xml');
+    const NS_GEO  = 'http://www.georss.org/georss';
+
+    Array.from(xml.querySelectorAll('item')).slice(0, 40).forEach(item => {
+      const title    = item.querySelector('title')?.textContent || '';
+      const geoPoint = item.getElementsByTagNameNS(NS_GEO, 'point')?.[0]?.textContent || '';
+      const coords   = geoPoint.trim().split(/\s+/);
+      const gLat     = parseFloat(coords[0]);
+      const gLon     = parseFloat(coords[1]);
+      if (isNaN(gLat) || isNaN(gLon)) return;
+
+      const alertRaw  = item.getElementsByTagNameNS('*', 'alertlevel')?.[0]?.textContent?.toUpperCase() || '';
+      const eventType = (item.getElementsByTagNameNS('*', 'eventtype')?.[0]?.textContent || '').toUpperCase();
+      const country   = item.getElementsByTagNameNS('*', 'country')?.[0]?.textContent || '';
+      const sevText   = item.getElementsByTagNameNS('*', 'severity')?.[0]?.textContent || '';
+
+      const isCyclone = /TC|CYCLONE|TYPHOON|HURRICANE/.test(eventType + title);
+      const isFlood   = /FL|FLOOD/.test(eventType + title);
+      const isEQ      = /EQ|EARTHQUAKE/.test(eventType + title);
+      if (isEQ) return; // covered by USGS
+
+      const level  = alertRaw === 'RED' ? 'CRITICAL' : alertRaw === 'ORANGE' ? 'HIGH' : 'MEDIUM';
+      const icon   = isCyclone ? '🌀' : isFlood ? '🌊' : '⚠️';
+      const type   = isCyclone ? 'Cyclone' : isFlood ? 'Flood Alert' : 'Active Disaster';
+      const detail = (sevText || title).replace(/<[^>]+>/g, '').trim().slice(0, 55);
+
+      gdacsRisks.push({ type, icon, location: country || title.slice(0, 45), detail, level,
+                         lat: gLat, lon: gLon, isCyclone, isFlood, kind: isCyclone ? 'cyclone' : 'flood' });
+    });
+  } catch(e) { console.warn('GDACS fetch failed:', e); }
+
+  // ── 3. Merge — GDACS first so floods/cyclones appear at top ───────────────
+  worldData = [...gdacsRisks, ...eqRisks];
+  if (!worldData.length) {
+    // Absolute fallback: USGS only, no fake entries
+    worldData = eqRisks;
+  }
+
+  // ── 4. Plot flood & cyclone markers on map ────────────────────────────────
+  worldData.forEach(r => {
+    if (!r.lat || !r.lon) return;
+    if (r.isFlood || r.kind === 'flood') {
+      const col = r.level === 'CRITICAL' ? '#ff2d55' : r.level === 'HIGH' ? '#00c8e6' : '#00b8d9';
+      L.circleMarker([r.lat, r.lon], {
+        radius: 11, color: col, fillColor: col, fillOpacity: 0.28, weight: 2, dashArray: '5 3'
+      }).addTo(floodLayerGroup)
+        .bindPopup(`<b>🌊 ${r.type}</b><br/>${r.location}<br/><small>${r.detail}</small>`);
+    }
+    if (r.isCyclone || r.kind === 'cyclone') {
+      const col = r.level === 'CRITICAL' ? '#ff2d55' : '#a78bfa';
+      // outer ring
+      L.circleMarker([r.lat, r.lon], {
+        radius: 15, color: col, fillColor: 'transparent', fillOpacity: 0, weight: 2, dashArray: '6 4'
+      }).addTo(cycloneLayerGroup)
+        .bindPopup(`<b>🌀 ${r.type}</b><br/>${r.location}<br/><small>${r.detail}</small>`);
+      // inner dot
+      L.circleMarker([r.lat, r.lon], {
+        radius: 5, color: col, fillColor: col, fillOpacity: 0.7, weight: 1.5
+      }).addTo(cycloneLayerGroup);
+    }
+  });
+
+  renderWorldRisks();
+  buildTicker(worldData);
+}
+
+// Refresh global risks every 10 minutes automatically
+setInterval(loadWorldRisks, 10 * 60 * 1000);
+
+/* ════════ TICKER ════════ */
+function buildTicker(data) {
+  if (!data.length) return;
+  const items = data.map(r =>
+    `<span class="tick-item" onclick="map.flyTo([${r.lat},${r.lon}],6)">
+      ${r.icon} <strong style="color:${lc(r.level)}">${r.type}</strong> — ${r.location} &nbsp;·&nbsp; ${r.detail}
+     </span><span class="tick-sep">|</span>`
+  ).join('');
+  document.getElementById('ticker-track').innerHTML = items + items;
+}
+
+function renderWorldRisks() {
+  const el = document.getElementById('p-world');
+  if (!worldData.length) { el.innerHTML = '<div class="empty">No active global risks detected</div>'; return; }
+  const list = showAll ? worldData : worldData.slice(0, 5);
+  const hasSrc = worldData.some(r => r.kind === 'flood' || r.kind === 'cyclone') ? '📡 GDACS + USGS' : '📡 USGS';
+  el.innerHTML = list.map(r => `
+    <div class="wri" onclick="map.flyTo([${r.lat},${r.lon}],6,{animate:true,duration:1.2})">
+      <div class="wri-ico">${r.icon}</div>
+      <div class="wri-body">
+        <div class="wri-type" style="color:${lc(r.level)}">${r.type}</div>
+        <div class="wri-loc">${r.location}</div>
+        <div class="wri-det">${r.detail}</div>
+      </div>
+      <div class="wri-chip ${rc(r.level)}">${r.level}</div>
+    </div>`).join('')
+    + (worldData.length > 5 ? `<button class="show-all" onclick="toggleAll()">${showAll ? '▲ Show Less' : '▼ Show All ' + worldData.length + ' Active Risks'}</button>` : '')
+    + `<div style="font-size:.54rem;color:var(--muted);margin-top:6px;text-align:center">${hasSrc} · Updated ${new Date().toLocaleTimeString()} · Auto-refreshes every 10 min</div>`;
+}
+function toggleAll() { showAll = !showAll; renderWorldRisks(); }
+
+/* ════════ SEARCH ════════ */
+let sDebounce;
+const sinput = document.getElementById('sinput');
+const sdrop = document.getElementById('sdrop');
+const sbox = document.getElementById('sbox');
+sinput.addEventListener('input', () => {
+  clearTimeout(sDebounce);
+  const q = sinput.value.trim();
+  if (q.length < 2) { hideDrop(); return; }
+  openDrop();
+  document.getElementById('sresults').innerHTML = '<div class="empty" style="padding:10px 13px;font-size:.68rem;">Searching…</div>';
+  sDebounce = setTimeout(() => doSearch(q), 350);
+});
+sinput.addEventListener('keydown', e => { if (e.key === 'Escape') hideDrop(); });
+document.addEventListener('click', e => { if (!e.target.closest('.search-bar')) hideDrop(); });
+function openDrop() { sdrop.style.display = 'block'; sbox.classList.add('open'); }
+function hideDrop() { sdrop.style.display = 'none'; sbox.classList.remove('open'); }
+function clearSearch() { sinput.value = ''; hideDrop(); }
+async function doSearch(q) {
+  try {
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&addressdetails=1&namedetails=1&limit=8&accept-language=en`;
+    const res = await fetch(url, { headers: { 'User-Agent': 'DisasterSense/1.0' } });
+    const data = await res.json();
+    renderResults(data);
+  } catch { document.getElementById('sresults').innerHTML = '<div class="empty" style="padding:10px 13px;">Search unavailable.</div>'; }
+}
+function renderResults(results) {
+  const el = document.getElementById('sresults');
+  if (!results.length) { el.innerHTML = '<div class="empty" style="padding:10px 13px;">No results found</div>'; return; }
+  el.innerHTML = results.map(r => {
+    const name = r.namedetails?.name || r.display_name.split(',')[0].trim();
+    const sub = r.display_name.split(',').slice(1, 4).join(',').trim();
+    const pin = rPin(r.class, r.type);
+    const tag = r.type || r.class || '';
+    return `<div class="ri" onclick="pickR(${r.lat},${r.lon},'${esc(r.display_name)}')">
+      <div class="ri-pin">${pin}</div>
+      <div class="ri-main">
+        <div class="ri-name">${name}</div>
+        <div class="ri-sub">${sub.slice(0,60)}${sub.length > 60 ? '…' : ''}</div>
+      </div>
+      <div class="ri-type-tag">${tag.slice(0,14)}</div>
+    </div>`;
+  }).join('');
+}
+function rPin(cls, type) {
+  if (['city','town','village','suburb','municipality'].includes(type)) return '🏙️';
+  if (cls === 'boundary' || type === 'administrative') return '🗺️';
+  if (cls === 'natural') return '🌿';
+  if (cls === 'waterway' || type === 'water') return '💧';
+  return '📌';
+}
+function esc(s) { return s.replace(/'/g,"\\'").replace(/"/g,'&quot;'); }
+function pickR(lat, lon, name) {
+  sinput.value = name.split(',')[0].trim();
+  hideDrop();
+  selectLoc(parseFloat(lat), parseFloat(lon), name);
+}
+
+/* ════════ MY LOCATION (Point 12) ════════ */
+function useMyLocation() {
+  if (!navigator.geolocation) { toast('⚠️ Error', 'Geolocation not supported', 'warn'); return; }
+  toast('📍 Locating…', 'Detecting your current location.', 'info', 3000);
+  navigator.geolocation.getCurrentPosition(
+    p => {
+      sinput.value = 'My Location'; hideDrop();
+      selectLoc(p.coords.latitude, p.coords.longitude, 'My Location');
+    },
+    () => toast('⚠️ Error', 'Could not get location. Check browser permissions.', 'warn')
+  );
+}
+
+/* ════════ SELECT LOCATION ════════ */
+function selectLoc(lat, lon, label) {
+  curLat = lat; curLon = lon;
+  map.flyTo([lat, lon], 12, { animate: true, duration: 1.5 });
+  if (locMarker) map.removeLayer(locMarker);
+  locMarker = L.circleMarker([lat, lon], { radius: 9, color: '#00e5ff', fillColor: '#00e5ff', fillOpacity: .35, weight: 2 }).addTo(map);
+  // Add risk heatmap ring
+  hmLayerGroup.clearLayers();
+
+  // Track stat
+  sessionLocs.add(`${lat.toFixed(2)},${lon.toFixed(2)}`);
+  updateStats();
+
+  const stats = JSON.parse(localStorage.getItem('dw_stats') || '{"sessions":1,"alerts":0,"locs":0}');
+  stats.locs = (stats.locs || 0) + 1;
+  localStorage.setItem('dw_stats', JSON.stringify(stats));
+  document.getElementById('pp-stat-locs').textContent = stats.locs;
+
+  setSkel();
+  fetchData(lat, lon);
+  if (refreshTimer) clearInterval(refreshTimer);
+  refreshTimer = setInterval(() => fetchData(lat, lon), 5 * 60 * 1000);
+}
+
+function setSkel() {
+  ['p-status','p-weather','p-eq','p-forecast','p-future','p-evac','p-aqi','p-tsunami','p-history'].forEach(id => {
+    document.getElementById(id).innerHTML =
+      '<div style="display:flex;flex-direction:column;gap:7px;padding:4px 0">' +
+      '<div class="skeleton" style="width:55%;height:11px"></div>' +
+      '<div class="skeleton" style="width:88%"></div>' +
+      '<div class="skeleton" style="width:70%"></div></div>';
+  });
+}
+
+/* ════════ FETCH ════════ */
+async function fetchData(lat, lon) {
+  try {
+    const r = await fetch(`${API}/monitor`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ lat, lon }) });
+    const d = await r.json();
+    if (d.status === 'ok') renderAll(d.data);
+    else toast('⚠️ Error', 'Could not load data.', 'warn');
+  } catch {
+    toast('⚠️ Offline', 'Backend not running. Start app.py first.', 'warn');
+    mockRender(lat, lon);
+  }
+}
+
+function mockRender(lat, lon) {
+  renderStatus({ disaster: 'No Disaster', confidence: .9, risk_level: 'LOW' }, { city: 'Demo Mode', country: '', lat, lon });
+  renderWeather({ temperature: 30, humidity: 58, wind_speed: 12, rainfall: 0, pressure: 1010, wind_deg: 220, description: 'Demo — Connect Flask backend' });
+  renderEq([]);
+  renderForecast([]);
+  renderFutureRisks([]);
+  renderEvacuation(lat, lon);
+}
+
+/* ════════ RENDER ALL ════════ */
+function renderAll(d) {
+  renderStatus(d.current, d.location);
+  renderWeather(d.weather);
+  renderAQI(d.aqi);
+  renderTsunami(d.tsunami_risk);
+  renderEq(d.earthquakes);
+  renderForecast(d.forecast_raw || []);
+  renderFutureRisks(d.future_risks || []);
+  renderEvacuation(d.location?.lat, d.location?.lon);
+  renderHistory();
+  trigAlerts(d.current, d.location);
+  updateCompare(d);
+  addRiskHeatmap(d.location?.lat, d.location?.lon, d.current?.risk_level);
+  sessionPredictions++;
+  updateStats(d.current, d.location);
+  // Update manual predict coords
+  if (d.location) {
+    document.getElementById('mp-coords').value = `${d.location.lat?.toFixed(4)}, ${d.location.lon?.toFixed(4)}`;
+  }
+}
+
+/* ════════ RENDER STATUS (Points 3, 8, 11) ════════ */
+function renderStatus(c, loc) {
+  const col = lc(c.risk_level);
+  const em = { Flood:'🌊', Earthquake:'🔴', Cyclone:'🌀', 'No Disaster':'✅' };
+  const sevLabel = { LOW:'🟢 Low Severity', MEDIUM:'🟡 Moderate Severity', HIGH:'🟠 High Severity', CRITICAL:'🔴 Extreme Severity' };
+  const sevColor = { LOW:'rgba(0,230,118,.12)', MEDIUM:'rgba(245,197,24,.12)', HIGH:'rgba(255,107,53,.12)', CRITICAL:'rgba(255,45,85,.12)' };
+  const sevBorder = { LOW:'rgba(0,230,118,.3)', MEDIUM:'rgba(245,197,24,.3)', HIGH:'rgba(255,107,53,.3)', CRITICAL:'rgba(255,45,85,.3)' };
+  // Multi-class risk scores (Point 3)
+  const scores = multiRiskScores(c);
+  document.getElementById('p-status').innerHTML = `
+    <div class="scard">
+      <div class="loc-name">📍 ${loc.city || ''}${loc.country ? ', ' + loc.country : ''} &nbsp;·&nbsp; ${loc.lat?.toFixed(3)}°, ${loc.lon?.toFixed(3)}°</div>
+      <!-- Severity Badge (Point 11) -->
+      <div class="severity-badge" style="background:${sevColor[c.risk_level]};border:1px solid ${sevBorder[c.risk_level]};color:${col}">
+        ${sevLabel[c.risk_level]}
+      </div>
+      <div class="dis-name" style="color:${col}">${em[c.disaster] || '⚠️'} ${c.disaster}</div>
+      <div class="risk-row">
+        <span class="rchip ${rc(c.risk_level)}">${c.risk_level} RISK</span>
+        <!-- Model Confidence (Point 8) -->
+        <div class="conf-w">
+          <div class="conf-l">🤖 Model Confidence: ${(c.confidence * 100).toFixed(0)}%</div>
+          <div class="conf-bar"><div class="conf-fill" style="width:${c.confidence * 100}%"></div></div>
+        </div>
+      </div>
+      <!-- Multi-class risk scores (Point 3) -->
+      <div class="risk-scores">
+        ${scores.map(s => `
+          <div class="rs-row">
+            <div class="rs-label">${s.icon} ${s.name}</div>
+            <div class="rs-bar"><div class="rs-fill" style="width:${s.pct}%;background:${s.color}"></div></div>
+            <div class="rs-val" style="color:${s.color}">${s.pct}%</div>
+          </div>`).join('')}
+      </div>
+      <div style="font-size:.58rem;color:var(--muted);margin-top:8px">Updated ${new Date().toLocaleTimeString()} · Refreshes every 5 min</div>
+    </div>`;
+}
+
+function multiRiskScores(c) {
+  const base = { Flood: 10, Earthquake: 10, Cyclone: 10, 'No Disaster': 5 };
+  const high = Math.round(c.confidence * 100);
+  if (c.disaster === 'Flood') return [
+    { name:'Flood', icon:'🌊', pct: high, color:'#00e5ff' },
+    { name:'Earthquake', icon:'🔴', pct: Math.max(base.Earthquake, 100 - high - 15), color:'#ff6b35' },
+    { name:'Cyclone', icon:'🌀', pct: Math.max(base.Cyclone, 100 - high - 25), color:'#a78bfa' },
+  ];
+  if (c.disaster === 'Earthquake') return [
+    { name:'Earthquake', icon:'🔴', pct: high, color:'#ff6b35' },
+    { name:'Flood', icon:'🌊', pct: Math.max(base.Flood, 100 - high - 20), color:'#00e5ff' },
+    { name:'Cyclone', icon:'🌀', pct: Math.max(base.Cyclone, 100 - high - 30), color:'#a78bfa' },
+  ];
+  if (c.disaster === 'Cyclone') return [
+    { name:'Cyclone', icon:'🌀', pct: high, color:'#a78bfa' },
+    { name:'Flood', icon:'🌊', pct: Math.max(base.Flood, 100 - high - 10), color:'#00e5ff' },
+    { name:'Earthquake', icon:'🔴', pct: Math.max(base.Earthquake, 100 - high - 35), color:'#ff6b35' },
+  ];
+  return [
+    { name:'Flood', icon:'🌊', pct: 8, color:'#00e5ff' },
+    { name:'Earthquake', icon:'🔴', pct: 6, color:'#ff6b35' },
+    { name:'Cyclone', icon:'🌀', pct: 5, color:'#a78bfa' },
+  ];
+}
+
+/* ════════ RENDER AQI — US EPA 0–500 scale ════════ */
+function renderAQI(aqi) {
+  const el = document.getElementById('p-aqi');
+  if (!aqi) { el.innerHTML = '<div class="empty">AQI data unavailable</div>'; return; }
+
+  // Needle position: 0–500 maps to 0–100%
+  const needlePct = Math.min(Math.max((aqi.aqi / 500) * 100, 1), 99).toFixed(1);
+
+  // Colour each pollutant cell by its own severity
+  function pollutantColor(pollutant, val) {
+    // WHO / NAQS informal thresholds for quick colour coding
+    const thresholds = {
+      pm2_5: [[0,12,'#00e676'],[12,35,'#f5c518'],[35,55,'#ff6b35'],[55,150,'#ff2d55'],[150,Infinity,'#a78bfa']],
+      pm10:  [[0,54,'#00e676'],[54,154,'#f5c518'],[154,254,'#ff6b35'],[254,354,'#ff2d55'],[354,Infinity,'#a78bfa']],
+      no2:   [[0,40,'#00e676'],[40,70,'#f5c518'],[70,150,'#ff6b35'],[150,200,'#ff2d55'],[200,Infinity,'#a78bfa']],
+      o3:    [[0,60,'#00e676'],[60,100,'#f5c518'],[100,140,'#ff6b35'],[140,180,'#ff2d55'],[180,Infinity,'#a78bfa']],
+      so2:   [[0,20,'#00e676'],[20,80,'#f5c518'],[80,250,'#ff6b35'],[250,350,'#ff2d55'],[350,Infinity,'#a78bfa']],
+      co:    [[0,4,'#00e676'],[4,9,'#f5c518'],[9,12,'#ff6b35'],[12,15,'#ff2d55'],[15,Infinity,'#a78bfa']],
+    };
+    const t = thresholds[pollutant] || [];
+    for (const [lo, hi, col] of t) { if (val >= lo && val < hi) return col; }
+    return 'var(--text)';
+  }
+
+  el.innerHTML = `
+    <div class="aqi-main">
+      <div class="aqi-ring" style="border-color:${aqi.color};color:${aqi.color}">
+        <div class="aqi-num">${aqi.aqi}</div>
+        <div class="aqi-lbl">US AQI</div>
+      </div>
+      <div class="aqi-info">
+        <div class="aqi-status" style="color:${aqi.color}">${aqi.label}</div>
+        <div class="aqi-dominant">Main pollutant: <strong style="color:${aqi.color}">${aqi.dominant || 'PM2.5'}</strong></div>
+        <div class="aqi-desc">${aqi.tip || ''}</div>
+      </div>
+    </div>
+
+    <div class="aqi-gauge-wrap">
+      <div class="aqi-gauge-labels">
+        <span style="color:#00e676">Good<br/>0</span>
+        <span style="color:#f5c518">Moderate<br/>100</span>
+        <span style="color:#ff6b35">USG<br/>150</span>
+        <span style="color:#ff2d55">Unhealthy<br/>200</span>
+        <span style="color:#a78bfa">Very<br/>300</span>
+        <span style="color:#8b0000">Haz<br/>500</span>
+      </div>
+      <div class="aqi-gauge-track">
+        <div class="aqi-gauge-needle" style="left:${needlePct}%"></div>
+      </div>
+    </div>
+
+    <div class="aqi-sub-row">
+      <div class="aqi-sub-pill">
+        <div class="aqi-sub-label">PM2.5 sub-index</div>
+        <div class="aqi-sub-val" style="color:${aqi.color}">${aqi.sub_pm25 ?? '—'}</div>
+      </div>
+      <div class="aqi-sub-pill">
+        <div class="aqi-sub-label">PM10 sub-index</div>
+        <div class="aqi-sub-val" style="color:${aqi.color}">${aqi.sub_pm10 ?? '—'}</div>
+      </div>
+    </div>
+
+    <div class="aqi-grid">
+      ${aqiCell('PM2.5', aqi.pm2_5, 'μg/m³', pollutantColor('pm2_5', aqi.pm2_5))}
+      ${aqiCell('PM10',  aqi.pm10,  'μg/m³', pollutantColor('pm10',  aqi.pm10))}
+      ${aqiCell('O₃',    aqi.o3,    'μg/m³', pollutantColor('o3',    aqi.o3))}
+      ${aqiCell('NO₂',   aqi.no2,   'μg/m³', pollutantColor('no2',   aqi.no2))}
+      ${aqiCell('SO₂',   aqi.so2,   'μg/m³', pollutantColor('so2',   aqi.so2))}
+      ${aqiCell('CO',    aqi.co,    'mg/m³',  pollutantColor('co',    aqi.co))}
+    </div>
+    <div style="font-size:.5rem;color:var(--dim);margin-top:6px;text-align:center">
+      US EPA AQI · PM2.5 &amp; PM10 breakpoint formula · OpenWeather real-time data
+    </div>`;
+}
+
+function aqiCell(label, val, unit, color) {
+  return `<div class="aqi-cell" style="border-color:${color}22">
+    <div class="aqi-cell-l">${label}</div>
+    <div class="aqi-cell-v" style="color:${color}">${val}<span class="aqi-cell-u">${unit}</span></div>
+  </div>`;
+}
+
+/* ════════ RENDER TSUNAMI ════════ */
+function renderTsunami(risk) {
+  const el = document.getElementById('p-tsunami');
+  if (!risk) { el.innerHTML = '<div class="empty">Tsunami data unavailable</div>'; return; }
+  const icons  = { NONE: '✅', LOW: '⚠️', MEDIUM: '🌊', HIGH: '🚨' };
+  const titles = {
+    NONE:   'No Tsunami Risk Detected',
+    LOW:    'Low Tsunami Risk',
+    MEDIUM: 'Moderate Tsunami Risk',
+    HIGH:   'HIGH TSUNAMI WARNING'
+  };
+  const colors = { NONE: 'var(--green)', LOW: 'var(--yellow)', MEDIUM: 'var(--orange)', HIGH: 'var(--red)' };
+  el.innerHTML = `
+    <div class="tsunami-card ${risk.level}">
+      <div class="tsunami-icon">${icons[risk.level] || '🌊'}</div>
+      <div class="tsunami-body">
+        <div class="tsunami-level" style="color:${colors[risk.level]}">${titles[risk.level] || risk.level}</div>
+        <div class="tsunami-reason">${risk.reason || 'No significant seismic triggers detected in the region.'}</div>
+        ${risk.quakes?.length ? `<div style="font-size:.58rem;color:var(--muted);margin-top:4px">Based on ${risk.quakes.length} nearby earthquake(s)</div>` : ''}
+      </div>
+    </div>
+    <div style="font-size:.57rem;color:var(--muted);margin-top:7px">Official warnings: <a href="https://www.tsunami.gov" target="_blank" style="color:var(--cyan)">tsunami.gov</a> · PTWC</div>`;
+}
+
+/* ════════ RENDER HISTORY CHART ════════ */
+let histMetric = 'risk'; // current chart metric
+function renderHistory() {
+  if (!curLat || !curLon) return;
+  fetch(`${API}/history?lat=${curLat}&lon=${curLon}`)
+    .then(r => r.json())
+    .then(d => drawHistoryChart(d.history || []))
+    .catch(() => {});
+}
+
+function drawHistoryChart(history) {
+  const el = document.getElementById('p-history');
+  if (!history.length) {
+    el.innerHTML = '<div class="empty">No history yet — data builds up over time with each refresh</div>';
+    return;
+  }
+
+  const metricConfig = {
+    risk:   { label: 'Risk Score', key: h => ({ CRITICAL:4, HIGH:3, MEDIUM:2, LOW:1 }[h.risk_level] || 0), color: '#ff6b35', max: 4 },
+    temp:   { label: 'Temperature °C', key: h => h.temperature || 0, color: '#f5c518', max: null },
+    rain:   { label: 'Rainfall mm/h',  key: h => h.rainfall || 0,    color: '#00e5ff', max: null },
+    wind:   { label: 'Wind km/h',      key: h => h.wind_speed || 0,  color: '#a78bfa', max: null },
+    aqi:    { label: 'AQI',            key: h => h.aqi || 0,         color: '#00e676', max: 500 },
+  };
+
+  const cfg    = metricConfig[histMetric] || metricConfig.risk;
+  const values = history.map(cfg.key);
+  const labels = history.map(h => h.time?.split(' ')[1]?.slice(0,5) || '');
+  const maxVal = cfg.max || Math.max(...values, 1);
+  const W = Math.max(history.length * 28, 340);
+  const H = 90;
+  const pad = 30;
+  const chartW = W - pad;
+  const chartH = H - 20;
+
+  // Build polyline points
+  const pts = values.map((v, i) => {
+    const x = pad + (i / Math.max(values.length - 1, 1)) * chartW;
+    const y = 10 + chartH - (v / maxVal) * chartH;
+    return `${x},${y}`;
+  }).join(' ');
+
+  // Area fill path
+  const first = `${pad},${10 + chartH}`;
+  const last  = `${pad + chartW},${10 + chartH}`;
+  const area  = `M${first} L${pts.split(' ').map((p,i)=> i===0?`L${p}`:p).join(' ')} L${last} Z`;
+
+  // X-axis labels (show every N-th)
+  const step   = Math.ceil(history.length / 5);
+  const xLabels = labels.map((l, i) => {
+    if (i % step !== 0) return '';
+    const x = pad + (i / Math.max(values.length - 1, 1)) * chartW;
+    return `<text x="${x}" y="${H}" fill="#4a6580" font-size="7" text-anchor="middle">${l}</text>`;
+  }).join('');
+
+  // Data dots
+  const dots = values.map((v, i) => {
+    const x = pad + (i / Math.max(values.length - 1, 1)) * chartW;
+    const y = 10 + chartH - (v / maxVal) * chartH;
+    const h = history[i];
+    return `<circle cx="${x}" cy="${y}" r="3" fill="${cfg.color}" opacity="0.9">
+      <title>${h.time}: ${v} (${h.disaster})</title></circle>`;
+  }).join('');
+
+  // Tabs HTML
+  const tabs = Object.entries(metricConfig).map(([k, c]) =>
+    `<button class="hchart-tab ${histMetric===k?'active':''}" onclick="setHistMetric('${k}')">${c.label}</button>`
+  ).join('');
+
+  el.innerHTML = `
+    <div class="hchart-tabs">${tabs}</div>
+    <div class="hchart-wrap">
+      <svg class="hchart-svg" width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
+        <!-- Grid lines -->
+        ${[0.25,0.5,0.75,1].map(f => {
+          const y = 10 + chartH - f * chartH;
+          return `<line x1="${pad}" y1="${y}" x2="${pad+chartW}" y2="${y}" stroke="#1c2a3e" stroke-width="1"/>
+                  <text x="${pad-4}" y="${y+3}" fill="#4a6580" font-size="7" text-anchor="end">${(f*maxVal).toFixed(f===1&&maxVal<10?1:0)}</text>`;
+        }).join('')}
+        <!-- Area -->
+        <defs>
+          <linearGradient id="hgrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="${cfg.color}" stop-opacity="0.25"/>
+            <stop offset="100%" stop-color="${cfg.color}" stop-opacity="0.02"/>
+          </linearGradient>
+        </defs>
+        <path d="${area}" fill="url(#hgrad)"/>
+        <!-- Line -->
+        <polyline points="${pts}" fill="none" stroke="${cfg.color}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+        ${dots}
+        ${xLabels}
+        <!-- Y axis -->
+        <line x1="${pad}" y1="10" x2="${pad}" y2="${10+chartH}" stroke="#1c2a3e" stroke-width="1"/>
+      </svg>
+    </div>
+    <div style="font-size:.55rem;color:var(--muted);margin-top:4px;text-align:center">${history.length} data point(s) — refreshes every 5 min</div>`;
+}
+
+function setHistMetric(m) {
+  histMetric = m;
+  renderHistory();
+}
+
+/* ════════ COLLAPSIBLE SECTIONS ════════ */
+function toggleSec(bodyId, toggleId) {
+  const body = document.getElementById(bodyId);
+  const tog  = document.getElementById(toggleId);
+  const isCollapsed = tog.classList.contains('collapsed');
+  if (isCollapsed) {
+    body.style.display = 'block';
+    tog.classList.remove('collapsed');
+  } else {
+    body.style.display = 'none';
+    tog.classList.add('collapsed');
+  }
+}
+
+/* ════════ MANUAL PREDICTION TOOL ════════ */
+async function runManualPredict() {
+  const rain  = parseFloat(document.getElementById('mp-rain').value)  || 0;
+  const mag   = parseFloat(document.getElementById('mp-mag').value)   || 0;
+  const wind  = parseFloat(document.getElementById('mp-wind').value)  || 0;
+  const lat   = curLat || 0;
+  const lon   = curLon || 0;
+  const btn   = document.querySelector('.mpred-btn');
+  const res   = document.getElementById('mp-result');
+
+  btn.textContent = '⏳ Running…';
+  btn.disabled    = true;
+  res.style.display = 'none';
+
+  try {
+    const r = await fetch(`${API}/predict`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ lat, lon, rainfall: rain, magnitude: mag, wind_kmh: wind })
+    });
+    const d = await r.json();
+    const icons = { Flood:'🌊', Earthquake:'🔴', Cyclone:'🌀', 'No Disaster':'✅', Unknown:'❓' };
+    const cols  = { Flood:'var(--cyan)', Earthquake:'var(--orange)', Cyclone:'var(--purple)', 'No Disaster':'var(--green)', Unknown:'var(--muted)' };
+    const pred  = d.prediction || 'Unknown';
+    const conf  = Math.round((d.confidence || 0) * 100);
+    res.style.display = 'flex';
+    res.innerHTML = `
+      <div class="mpred-res-icon">${icons[pred] || '⚠️'}</div>
+      <div>
+        <div class="mpred-res-name" style="color:${cols[pred]}">${pred}</div>
+        <div class="mpred-res-conf">Confidence: ${conf}% &nbsp;·&nbsp; Input: ${rain}mm rain, M${mag}, ${wind}km/h wind</div>
+      </div>`;
+    res.className = 'mpred-result';
+  } catch {
+    res.style.display = 'flex';
+    res.className = 'mpred-result';
+    res.innerHTML = `<div class="mpred-res-icon">⚠️</div><div class="mpred-res-name" style="color:var(--red)">Backend not reachable</div>`;
+  } finally {
+    btn.textContent = '🤖 Run ML Prediction';
+    btn.disabled    = false;
+  }
+}
+
+/* ════════ EXPORT DATA ════════ */
+function exportData(fmt) {
+  if (!curLat || !curLon) {
+    toast('⚠️ No Location', 'Select a location first.', 'warn', 4000); return;
+  }
+  const url = `${API}/export?lat=${curLat}&lon=${curLon}&format=${fmt}`;
+  const a   = document.createElement('a');
+  a.href    = url;
+  a.download = '';
+  a.click();
+  toast(`📥 Downloading ${fmt.toUpperCase()}`, 'Your data export is being prepared.', 'info', 4000);
+}
+
+/* ════════ SHARE LOCATION ════════ */
+function shareLocation() {
+  if (!curLat || !curLon) {
+    toast('⚠️ No Location', 'Select a location first.', 'warn', 4000); return;
+  }
+  const shareUrl = `${window.location.origin}${window.location.pathname}?lat=${curLat.toFixed(4)}&lon=${curLon.toFixed(4)}`;
+  if (navigator.share) {
+    navigator.share({ title: 'DisasterSense — Location Monitoring', url: shareUrl })
+      .catch(() => copyToClipboard(shareUrl));
+  } else {
+    copyToClipboard(shareUrl);
+  }
+}
+
+function copyToClipboard(text) {
+  navigator.clipboard.writeText(text).then(() => {
+    toast('🔗 Link Copied!', 'Share URL copied to clipboard.', 'info', 4000);
+  }).catch(() => {
+    toast('🔗 Share URL', text.slice(0, 60) + '…', 'info', 8000);
+  });
+}
+
+/* ════════ PRINT REPORT ════════ */
+function printReport() {
+  if (!curLat || !curLon) {
+    toast('⚠️ No Location', 'Select a location first.', 'warn', 4000); return;
+  }
+  window.print();
+}
+
+/* ════════ AUTO-LOAD FROM URL PARAMS ════════ */
+function checkUrlParams() {
+  const params = new URLSearchParams(window.location.search);
+  const lat    = parseFloat(params.get('lat'));
+  const lon    = parseFloat(params.get('lon'));
+  if (!isNaN(lat) && !isNaN(lon)) {
+    setTimeout(() => selectLoc(lat, lon, `Shared Location`), 1200);
+  }
+}
+
+/* ════════ IMPROVED WEATHER (adds feels_like, gust, visibility, sunrise/sunset) ════════ */
+function renderWeather(w) {
+  if (!w) { document.getElementById('p-weather').innerHTML = '<div class="empty">No data</div>'; return; }
+  const deg     = w.wind_deg || 0;
+  const dirs    = ['N','NE','E','SE','S','SW','W','NW'];
+  const dirName = dirs[Math.round(deg / 45) % 8];
+  document.getElementById('p-weather').innerHTML = `
+    <div class="wdesc">
+      ${w.icon ? `<img src="https://openweathermap.org/img/wn/${w.icon}.png" style="width:28px;height:28px;margin:-4px 0" alt=""/>` : ''}
+      ${w.description}
+    </div>
+    <div class="wgrid">
+      ${wc('🌡️ Temp', (w.temperature || 0).toFixed(1), '°C')}
+      ${wc('🤔 Feels Like', (w.feels_like || 0).toFixed(1), '°C')}
+      ${wc('💧 Humidity', w.humidity || 0, '%')}
+      ${wc('🌧️ Rainfall', (w.rainfall || 0).toFixed(1), 'mm/h')}
+      ${wc('📊 Pressure', w.pressure || 0, 'hPa')}
+      ${wc('☁️ Cloud Cover', w.clouds || 0, '%')}
+    </div>
+    <div class="wext-row">
+      ${wext('👁️ Visibility', (w.visibility || 0) + ' km')}
+      ${wext('🌅 Sunrise', w.sunrise || '—')}
+      ${wext('🌇 Sunset', w.sunset || '—')}
+    </div>
+    <div class="wind-compass-row">
+      <div class="compass">
+        <div class="compass-n">N</div>
+        <div class="compass-arrow" style="transform:rotate(${deg}deg)"></div>
+      </div>
+      <div class="wind-info">
+        <div class="wind-speed-big">${(w.wind_speed || 0).toFixed(1)} <span style="font-size:.6rem;color:var(--muted);font-family:var(--ui)">km/h</span></div>
+        <div class="wind-dir-lbl">💨 Wind from ${dirName} (${deg}°)${w.wind_gust > 0 ? ` · Gusts ${(w.wind_gust||0).toFixed(0)} km/h` : ''}</div>
+      </div>
+    </div>`;
+}
+const wc   = (l,v,u) => `<div class="wc"><div class="wc-l">${l}</div><div class="wc-v">${v} <span class="wc-u">${u}</span></div></div>`;
+const wext = (l,v)   => `<div class="wext-pill"><div class="wext-pill-l">${l}</div><div class="wext-pill-v">${v}</div></div>`;
+
+/* ════════ RENDER EARTHQUAKES ════════ */
+function renderEq(qs) {
+  const el = document.getElementById('p-eq');
+  if (!qs?.length) { el.innerHTML = '<div class="empty">✅ No earthquakes nearby (M2.0+)</div>'; return; }
+  el.innerHTML = qs.map(q => {
+    const c = q.magnitude >= 6 ? 'var(--red)' : q.magnitude >= 4 ? 'var(--orange)' : 'var(--yellow)';
+    return `<div class="eqi" onclick="map.flyTo([${q.lat},${q.lon}],8)">
+      <div class="eqm" style="color:${c}">M${q.magnitude}</div>
+      <div class="eqi-info"><div class="eqi-place">${q.place}</div><div class="eqi-meta">${q.time}</div></div>
+      <div class="eqi-depth">${q.depth_km}km deep</div>
+    </div>`;
+  }).join('');
+}
+
+/* ════════ RENDER FORECAST (Point 5) ════════ */
+function renderForecast(raw) {
+  const el = document.getElementById('p-forecast');
+  if (!raw?.length) { el.innerHTML = '<div class="empty">No forecast data available</div>'; return; }
+  const days = {};
+  raw.forEach(fc => {
+    const date = fc.timestamp.split(' ')[0];
+    if (!days[date]) days[date] = [];
+    days[date].push(fc);
+  });
+  const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const keys = Object.keys(days).slice(0, 7);
+  el.innerHTML = keys.map(date => {
+    const items = days[date];
+    const maxRain = Math.max(...items.map(i => i.rainfall || 0));
+    const maxWind = Math.max(...items.map(i => i.wind_speed || 0));
+    const maxTemp = Math.max(...items.map(i => i.temperature || 0));
+    const minTemp = Math.min(...items.map(i => i.temperature || 0));
+    const avgHum = items.reduce((s,i) => s + (i.humidity || 0), 0) / items.length;
+    const tags = [];
+    if (maxRain > 80)       tags.push({ l:'Extreme Rain',  c:'#ff2d55' });
+    else if (maxRain > 40)  tags.push({ l:'Heavy Rain',    c:'#00e5ff' });
+    else if (maxRain > 15)  tags.push({ l:'Rain',          c:'#00b8d9' });
+    if (maxWind > 110)      tags.push({ l:'Cyclone Risk',  c:'#ff2d55' });
+    else if (maxWind > 80)  tags.push({ l:'Storm Winds',   c:'#ff6b35' });
+    else if (maxWind > 55)  tags.push({ l:'High Winds',    c:'#f5c518' });
+    if (maxTemp > 42)       tags.push({ l:'Heat Wave',     c:'#ff6b35' });
+    if (avgHum > 88 && maxRain > 35) tags.push({ l:'Flood Risk', c:'#a78bfa' });
+    const icon = maxRain > 40 ? '🌧️' : maxWind > 70 ? '🌪️' : maxTemp > 38 ? '☀️' : maxRain > 10 ? '🌦️' : '⛅';
+    const d = new Date(date);
+    const dn = dayNames[d.getDay()];
+    const dm = d.getDate() + '/' + (d.getMonth() + 1);
+    const rPct = Math.min(maxRain / 80 * 100, 100);
+    const rCol = maxRain > 60 ? 'var(--red)' : maxRain > 30 ? 'var(--cyan)' : maxRain > 10 ? '#00b8d9' : 'var(--border2)';
+    return `<div class="fc-day">
+      <div class="fc-dn">${dn}</div><div class="fc-dt">${dm}</div>
+      <div class="fc-ic">${icon}</div>
+      <div class="fc-mid">
+        <div class="fc-info">${maxRain.toFixed(0)}mm · ${maxWind.toFixed(0)}km/h · ${avgHum.toFixed(0)}% RH</div>
+        <div class="fc-bar"><div class="fc-fill" style="width:${rPct}%;background:${rCol}"></div></div>
+        ${tags.length ? `<div class="fc-tags">${tags.map(t => `<span class="fc-tag" style="background:${t.c}22;color:${t.c};border:1px solid ${t.c}44">${t.l}</span>`).join('')}</div>` : ''}
+      </div>
+      <div class="fc-tr"><div class="fc-hi">${maxTemp.toFixed(0)}°</div><div class="fc-lo">${minTemp.toFixed(0)}°</div></div>
+    </div>`;
+  }).join('');
+}
+
+/* ════════ FUTURE RISKS ════════ */
+function renderFutureRisks(risks) {
+  const el = document.getElementById('p-future');
+  if (!risks?.length) { el.innerHTML = '<div class="empty">✅ No predicted risks in next 24 hours</div>'; return; }
+  el.innerHTML = risks.map(r => `
+    <div class="fris-item">
+      <div class="fris-time">${r.time?.split(' ')[1]?.slice(0,5) || r.time}</div>
+      <div class="fris-type" style="color:${r.disaster==='Flood'?'var(--cyan)':r.disaster==='Cyclone'?'var(--purple)':'var(--orange)'}">${r.disaster==='Flood'?'🌊':r.disaster==='Cyclone'?'🌀':'🔴'} ${r.disaster}</div>
+      <div>
+        <div class="fris-conf">${(r.confidence * 100).toFixed(0)}%</div>
+        <div class="fris-bar"><div class="fris-fill" style="width:${r.confidence*100}%"></div></div>
+      </div>
+    </div>`).join('');
+}
+
+/* ════════ EVACUATION RESOURCES — Live Overpass API ════════ */
+async function renderEvacuation(lat, lon) {
+  if (!lat || !lon) return;
+  const el = document.getElementById('p-evac');
+  el.innerHTML = '<div class="empty" style="padding:8px 0">🔍 Fetching nearby safety resources…</div>';
+
+  const R = 10000; // 10 km radius
+  const query = `[out:json][timeout:18];
+(
+  node["amenity"="hospital"](around:${R},${lat},${lon});
+  node["amenity"="clinic"](around:${R},${lat},${lon});
+  node["amenity"="fire_station"](around:${R},${lat},${lon});
+  node["amenity"="police"](around:${R},${lat},${lon});
+  node["amenity"="school"](around:${R},${lat},${lon});
+  node["emergency"="assembly_point"](around:${R},${lat},${lon});
+  node["emergency"="shelter"](around:${R},${lat},${lon});
+  node["amenity"="pharmacy"](around:${R},${lat},${lon});
+);
+out body 20;`;
+
+  function haversine(la1, lo1, la2, lo2) {
+    const toR = Math.PI / 180;
+    const dLat = (la2 - la1) * toR, dLon = (lo2 - lo1) * toR;
+    const a = Math.sin(dLat/2)**2 + Math.cos(la1*toR)*Math.cos(la2*toR)*Math.sin(dLon/2)**2;
+    return (6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))).toFixed(2);
+  }
+
+  const typeMap = {
+    hospital:       { icon:'🏥', label:'Hospital' },
+    clinic:         { icon:'🏥', label:'Medical Clinic' },
+    fire_station:   { icon:'🚒', label:'Fire & Rescue' },
+    police:         { icon:'🚔', label:'Police Station' },
+    school:         { icon:'🏫', label:'School / Shelter' },
+    assembly_point: { icon:'🟢', label:'Assembly Point' },
+    shelter:        { icon:'🏠', label:'Emergency Shelter' },
+    pharmacy:       { icon:'💊', label:'Pharmacy' },
+  };
+
+  try {
+    const res  = await fetch('https://overpass-api.de/api/interpreter', {
+      method: 'POST', body: 'data=' + encodeURIComponent(query)
+    });
+    const data = await res.json();
+    const elements = data.elements || [];
+
+    if (!elements.length) {
+      el.innerHTML = '<div class="empty">No safety resources found within 10 km.<br/><small>Try a more populated area.</small></div>'
+        + '<div style="font-size:.58rem;color:var(--muted);margin-top:7px;text-align:center">Emergency: 112 · Disaster Helpline: 1078</div>';
+      return;
+    }
+
+    const resources = elements.map(e => {
+      const amenity = e.tags?.amenity || e.tags?.emergency || 'unknown';
+      const info    = typeMap[amenity] || { icon:'📍', label: amenity };
+      const dist    = parseFloat(haversine(lat, lon, e.lat, e.lon));
+      const name    = e.tags?.name || e.tags?.['name:en'] || info.label + ' (unnamed)';
+      return { name, icon: info.icon, type: info.label, dist, distStr: dist.toFixed(2) + ' km', elat: e.lat, elon: e.lon };
+    }).sort((a, b) => a.dist - b.dist).slice(0, 9);
+
+    el.innerHTML = resources.map(r => `
+      <div class="evac-card" onclick="map.flyTo([${r.elat},${r.elon}],17)" style="cursor:pointer" title="View on map">
+        <div class="evac-icon">${r.icon}</div>
+        <div class="evac-body">
+          <div class="evac-name">${r.name}</div>
+          <div class="evac-type">${r.type}</div>
+          <div class="evac-dist">📏 ~${r.distStr} away</div>
+        </div>
+        <div class="evac-open">✓ Real</div>
+      </div>`).join('')
+      + `<div style="font-size:.57rem;color:var(--muted);margin-top:7px;text-align:center">
+           📡 Live · OpenStreetMap Overpass API · Emergency: 112 · Disaster Helpline: 1078
+         </div>`;
+  } catch(err) {
+    el.innerHTML = '<div class="empty">⚠️ Could not load nearby resources.<br/><small>Check internet connection.</small></div>'
+      + '<div style="font-size:.58rem;color:var(--muted);margin-top:7px;text-align:center">Emergency: 112 · Disaster Helpline: 1078</div>';
+  }
+}
+
+/* ════════ COMPARISON MODE (Point 7) ════════ */
+function setCmpA() {
+  if (!curLat) { toast('⚠️ Select a location first', '', 'warn'); return; }
+  cmpA = { lat: curLat, lon: curLon };
+  fetch(`${API}/monitor`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ lat: curLat, lon: curLon }) })
+    .then(r => r.json()).then(d => { if (d.status === 'ok') { cmpA.data = d.data; renderCmp(); } }).catch(() => {});
+  toast('📍 City A set', 'Now select another location for City B.', 'info');
+}
+function setCmpB() {
+  if (!curLat) { toast('⚠️ Select a location first', '', 'warn'); return; }
+  cmpB = { lat: curLat, lon: curLon };
+  fetch(`${API}/monitor`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ lat: curLat, lon: curLon }) })
+    .then(r => r.json()).then(d => { if (d.status === 'ok') { cmpB.data = d.data; renderCmp(); } }).catch(() => {});
+  toast('📍 City B set', 'Comparing locations now.', 'info');
+}
+function renderCmp() {
+  ['a','b'].forEach(side => {
+    const cmp = side === 'a' ? cmpA : cmpB;
+    const el = document.getElementById(`cmp-${side}`);
+    if (!cmp?.data) { el.innerHTML = `<div class="cmp-empty">Click map<br/>to set City ${side.toUpperCase()}</div>`; return; }
+    const d = cmp.data;
+    const col = lc(d.current?.risk_level);
+    el.innerHTML = `
+      <div class="cmp-city">📍 ${d.location?.city || 'Unknown'}</div>
+      <div class="cmp-dis" style="color:${col}">${d.current?.disaster}</div>
+      <div class="cmp-row"><span>Risk</span><span class="cmp-val" style="color:${col}">${d.current?.risk_level}</span></div>
+      <div class="cmp-row"><span>Confidence</span><span class="cmp-val">${(d.current?.confidence*100||0).toFixed(0)}%</span></div>
+      <div class="cmp-row"><span>🌡️ Temp</span><span class="cmp-val">${(d.weather?.temperature||0).toFixed(1)}°C</span></div>
+      <div class="cmp-row"><span>💧 Humidity</span><span class="cmp-val">${d.weather?.humidity||0}%</span></div>
+      <div class="cmp-row"><span>💨 Wind</span><span class="cmp-val">${(d.weather?.wind_speed||0).toFixed(0)} km/h</span></div>
+      <div class="cmp-row"><span>🌧️ Rain</span><span class="cmp-val">${(d.weather?.rainfall||0).toFixed(1)} mm</span></div>`;
+  });
+}
+function updateCompare(d) {
+  // Update whichever side is active
+  if (cmpA && Math.abs(cmpA.lat - (d.location?.lat||0)) < 0.1) { cmpA.data = d; renderCmp(); }
+  if (cmpB && Math.abs(cmpB.lat - (d.location?.lat||0)) < 0.1) { cmpB.data = d; renderCmp(); }
+}
+
+/* ════════ HEATMAP RING (Point 2) ════════ */
+function addRiskHeatmap(lat, lon, riskLevel) {
+  if (!lat || !lon) return;
+  hmLayerGroup.clearLayers();
+  const radii = { LOW: 15000, MEDIUM: 25000, HIGH: 35000, CRITICAL: 50000 };
+  const cols = { LOW: '#00e676', MEDIUM: '#f5c518', HIGH: '#ff6b35', CRITICAL: '#ff2d55' };
+  const r = radii[riskLevel] || 20000;
+  const c = cols[riskLevel] || '#00e5ff';
+  [r, r*1.5, r*2].forEach((radius, i) => {
+    L.circle([lat, lon], {
+      radius, color: c, fillColor: c,
+      fillOpacity: 0.06 - i * 0.015,
+      weight: i === 0 ? 1.5 : 0.5,
+      opacity: 0.4 - i * 0.1,
+      dashArray: i > 0 ? '4 4' : null
+    }).addTo(hmLayerGroup);
+  });
+}
+
+/* ════════ STATS DASHBOARD (Point 9) ════════ */
+function updateStats(current, location) {
+  document.getElementById('stat-predictions').textContent = sessionPredictions;
+  document.getElementById('stat-alerts-count').textContent = sessionAlerts;
+  document.getElementById('stat-monitored').textContent = sessionLocs.size;
+  document.getElementById('stat-pred-sub').textContent = `This session: ${sessionPredictions}`;
+  document.getElementById('hs-predictions').textContent = sessionPredictions;
+  document.getElementById('hs-alerts').textContent = sessionAlerts;
+  document.getElementById('hs-locations').textContent = sessionLocs.size;
+  if (current && location) {
+    const lvlRank = { LOW: 0, MEDIUM: 1, HIGH: 2, CRITICAL: 3 };
+    if ((lvlRank[current.risk_level] || 0) >= (lvlRank[highestZone.level] || 0)) {
+      highestZone = { city: location.city || '—', level: current.risk_level };
+    }
+    document.getElementById('stat-highest').textContent = highestZone.city;
+    document.getElementById('stat-highest-sub').textContent = highestZone.level + ' RISK';
+    document.getElementById('hs-zone').textContent = highestZone.city;
+  }
+}
+
+/* ════════ ALERT LOG (Point 10) ════════ */
+function addToLog(entry) {
+  alertLog.unshift({ ...entry, time: new Date().toLocaleTimeString() });
+  if (alertLog.length > 20) alertLog.pop();
+  renderLog();
+}
+function renderLog() {
+  const el = document.getElementById('p-log');
+  if (!alertLog.length) { el.innerHTML = '<div class="empty">No alerts recorded yet</div>'; return; }
+  el.innerHTML = alertLog.map(a => {
+    const icon = a.level === 'CRITICAL' ? '🔴' : a.level === 'HIGH' ? '🟠' : a.level === 'MEDIUM' ? '🟡' : '🟢';
+    return `<div class="alog-item">
+      <div class="alog-icon">${icon}</div>
+      <div class="alog-body">
+        <div class="alog-title">${a.disaster} — ${a.city}</div>
+        <div class="alog-meta">Confidence: ${a.confidence}% &nbsp;·&nbsp; ${a.time}</div>
+      </div>
+      <div class="alog-chip ${rc(a.level)}">${a.level}</div>
+    </div>`;
+  }).join('');
+}
+function toggleLog() {
+  const wrap = document.getElementById('p-log-wrap');
+  const tog = document.getElementById('log-toggle');
+  const isVisible = wrap.style.display !== 'none';
+  wrap.style.display = isVisible ? 'none' : 'block';
+  tog.classList.toggle('collapsed', isVisible);
+}
+
+/* ════════ ALERTS (Points 4, 10) ════════ */
+const shownA = new Set();
+function trigAlerts(c, loc) {
+  const city = loc?.city || 'this area';
+  // Always log to history
+  addToLog({ disaster: c.disaster, city, confidence: (c.confidence*100).toFixed(0), level: c.risk_level });
+  sessionAlerts++;
+  updateStats();
+
+  // Dedupe toasts
+  const k = `${c.disaster}|${c.risk_level}|${city}`;
+  if (shownA.has(k)) return; shownA.add(k);
+
+  if (currentUser?.notifications && 'Notification' in window && Notification.permission === 'granted') {
+    if (c.risk_level === 'CRITICAL' || c.risk_level === 'HIGH') {
+      new Notification('⚠️ DisasterSense Alert', { body: `${c.disaster} — ${c.risk_level} RISK near ${city}`, icon: '/static/icon.png' });
+      const stats = JSON.parse(localStorage.getItem('dw_stats') || '{"sessions":1,"alerts":0,"locs":0}');
+      stats.alerts = (stats.alerts || 0) + 1;
+      localStorage.setItem('dw_stats', JSON.stringify(stats));
+      document.getElementById('pp-stat-alerts').textContent = stats.alerts;
+    }
+  }
+  if (c.risk_level === 'CRITICAL')   toast(`🚨 CRITICAL — ${c.disaster}`, `Imminent threat detected near ${city}.`, 'danger', 12000);
+  else if (c.risk_level === 'HIGH')  toast(`⚠️ HIGH RISK — ${c.disaster}`, `Elevated risk detected near ${city}.`, 'warn', 9000);
+  else if (c.risk_level === 'MEDIUM') toast(`🟡 MEDIUM RISK — ${c.disaster}`, `Monitor situation near ${city}.`, 'info', 6000);
+}
+
+function toast(title, msg, type = 'info', dur = 7000) {
+  const icon = type === 'danger' ? '🔴' : type === 'warn' ? '🟡' : '🔵';
+  const el = document.createElement('div');
+  el.className = `toast ${type === 'danger' ? '' : type}`;
+  el.innerHTML = `<div>${icon}</div><div class="t-body"><div class="t-title">${title}</div><div class="t-msg">${msg}</div></div>
+    <button class="t-close" onclick="this.closest('.toast').remove()">✕</button>`;
+  document.getElementById('alerts').appendChild(el);
+  setTimeout(() => el.remove(), dur);
+}
+
+/* ════════ HELPERS ════════ */
+const lc = lvl => ({ LOW:'var(--green)', MEDIUM:'var(--yellow)', HIGH:'var(--orange)', CRITICAL:'var(--red)' }[lvl] || 'var(--text)');
+const rc = lvl => `r${lvl}`;
+
+/* ════════ INIT ════════ */
+document.addEventListener('DOMContentLoaded', () => {
+  loadUser();
+  initMap();
+  checkUrlParams();
+  if (!currentUser) {
+    toast('👤 Guest Mode', 'Sign in for push notifications &amp; personalized alerts.', 'info', 8000);
+  } else {
+    toast(`👋 Welcome back, ${(currentUser.name || 'User').split(' ')[0]}!`, 'Real-time monitoring active.', 'info', 5000);
+  }
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DisasterSense — Create Account</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --deep:#0a0e1a;--panel:#0f1628;--card:#131c35;
+  --accent:#e85d26;--accent2:#f5a623;--sky:#2a6ef5;
+  --border:rgba(255,255,255,.08);--text:#f0f4ff;--muted:#8a9abc;
+  --success:#22d3a4;--err:#ff4d6d;--radius:24px;--rsm:12px;
+}
+html,body{min-height:100%;background:var(--deep);color:var(--text);font-family:'DM Sans',sans-serif}
+.bg{position:fixed;inset:0;z-index:0;
+  background:radial-gradient(ellipse 70% 50% at 10% 10%,#1a2a5e44 0%,transparent 60%),
+             radial-gradient(ellipse 60% 50% at 85% 85%,#e85d2611 0%,transparent 60%),#0a0e1a}
+.bg-grid{position:fixed;inset:0;z-index:0;
+  background-image:linear-gradient(rgba(42,110,245,.04) 1px,transparent 1px),
+                   linear-gradient(90deg,rgba(42,110,245,.04) 1px,transparent 1px);
+  background-size:48px 48px}
+.bg-orb{position:fixed;border-radius:50%;filter:blur(80px);z-index:0;pointer-events:none}
+.orb1{width:360px;height:360px;background:#2a6ef518;top:-80px;right:-60px;animation:drift1 14s ease-in-out infinite}
+.orb2{width:280px;height:280px;background:#22d3a40a;bottom:-40px;left:-40px;animation:drift2 18s ease-in-out infinite}
+@keyframes drift1{0%,100%{transform:translate(0,0)}50%{transform:translate(-20px,15px)}}
+@keyframes drift2{0%,100%{transform:translate(0,0)}50%{transform:translate(25px,-20px)}}
+
+.wrapper{position:relative;z-index:1;display:flex;align-items:flex-start;justify-content:center;min-height:100vh;padding:32px 20px}
+.card{width:560px;max-width:100%;
+  background:rgba(19,28,53,.88);backdrop-filter:blur(24px);
+  border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;
+  box-shadow:0 40px 80px rgba(0,0,0,.5),0 0 0 1px rgba(255,255,255,.04) inset}
+
+.card-head{padding:32px 40px 24px;border-bottom:1px solid var(--border);
+  background:linear-gradient(135deg,rgba(42,110,245,.06) 0%,transparent 60%)}
+.back-btn{display:inline-flex;align-items:center;gap:7px;font-size:13px;color:var(--muted);
+  background:none;border:none;cursor:pointer;font-family:'DM Sans',sans-serif;
+  margin-bottom:18px;transition:color .2s;padding:0}
+.back-btn:hover{color:var(--text)}
+.brand{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.brand-icon{width:34px;height:34px;border-radius:9px;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  display:flex;align-items:center;justify-content:center;font-size:16px}
+.brand-name{font-family:'Syne',sans-serif;font-weight:800;font-size:16px}
+.page-title{font-family:'Syne',sans-serif;font-weight:800;font-size:26px;margin-bottom:4px}
+.page-sub{font-size:13px;color:var(--muted)}
+
+.card-body{padding:32px 40px}
+
+/* Steps indicator */
+.steps{display:flex;align-items:center;gap:0;margin-bottom:28px}
+.step{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+.step.active{color:var(--text)}
+.step.done{color:var(--success)}
+.step-num{width:24px;height:24px;border-radius:50%;border:1.5px solid var(--muted);
+  display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}
+.step.active .step-num{border-color:var(--sky);background:rgba(42,110,245,.15);color:var(--sky)}
+.step.done .step-num{border-color:var(--success);background:rgba(34,211,164,.12);color:var(--success)}
+.step-line{flex:1;height:1px;background:var(--border);margin:0 8px}
+
+/* Method tabs */
+.method-tabs{display:flex;background:rgba(255,255,255,.05);border-radius:10px;padding:4px;margin-bottom:22px;gap:4px}
+.mtab{flex:1;text-align:center;padding:9px;font-size:13px;font-weight:500;
+  border-radius:8px;cursor:pointer;transition:all .2s;color:var(--muted);
+  border:none;background:none;font-family:'DM Sans',sans-serif;
+  display:flex;align-items:center;justify-content:center;gap:6px}
+.mtab.active{background:var(--sky);color:#fff;box-shadow:0 2px 12px rgba(42,110,245,.4)}
+.mtab svg{width:14px;height:14px;flex-shrink:0}
+
+.social-btn{width:100%;display:flex;align-items:center;justify-content:center;gap:9px;
+  background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:var(--rsm);
+  padding:12px;font-size:13px;cursor:pointer;transition:all .2s;color:var(--text);
+  font-family:'DM Sans',sans-serif;margin-bottom:18px}
+.social-btn:hover{background:rgba(255,255,255,.09);border-color:rgba(255,255,255,.18);transform:translateY(-1px)}
+.social-btn svg{width:17px;height:17px}
+
+.divider{display:flex;align-items:center;gap:12px;margin-bottom:18px;color:var(--muted);font-size:12px}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--border)}
+
+.field{margin-bottom:14px;position:relative}
+.field label{display:block;font-size:12px;font-weight:500;color:var(--muted);margin-bottom:6px;letter-spacing:.3px}
+.field input,.field select{
+  width:100%;background:rgba(255,255,255,.04);border:1px solid var(--border);
+  border-radius:var(--rsm);padding:12px 14px;font-size:14px;color:var(--text);
+  transition:all .2s;outline:none;font-family:'DM Sans',sans-serif}
+.field input:focus,.field select:focus{border-color:rgba(42,110,245,.6);background:rgba(42,110,245,.06);box-shadow:0 0 0 3px rgba(42,110,245,.12)}
+.field input::placeholder{color:rgba(138,154,188,.5)}
+.field-row{display:flex;gap:12px}
+.field-row .field{flex:1}
+.pw-toggle{position:absolute;right:13px;top:36px;background:none;border:none;cursor:pointer;color:var(--muted);font-size:16px}
+.pw-toggle:hover{color:var(--text)}
+
+.pw-strength{margin-top:6px}
+.pw-bars{display:flex;gap:4px;height:3px;margin-bottom:4px}
+.pw-bar{flex:1;border-radius:2px;background:var(--border);transition:background .3s}
+.pw-bar.fill-weak{background:#ff4d6d}
+.pw-bar.fill-fair{background:var(--accent2)}
+.pw-bar.fill-good{background:#60a5fa}
+.pw-bar.fill-strong{background:var(--success)}
+.pw-label{font-size:11px;color:var(--muted)}
+
+.phone-row{display:flex;gap:10px}
+.phone-row select{flex-shrink:0;width:108px;background:rgba(255,255,255,.04);border:1px solid var(--border);
+  border-radius:var(--rsm);padding:12px 8px;font-size:13px;color:var(--text);font-family:'DM Sans',sans-serif;outline:none;cursor:pointer}
+.phone-row select option{background:var(--card)}
+.phone-row select:focus{border-color:rgba(42,110,245,.6)}
+.phone-row input{flex:1}
+
+.otp-input{width:100%;text-align:center;background:rgba(255,255,255,.04);
+  border:1px solid var(--border);border-radius:var(--rsm);padding:14px;
+  font-size:22px;font-weight:700;color:var(--text);letter-spacing:8px;
+  transition:all .2s;outline:none;font-family:'Syne',sans-serif}
+.otp-input:focus{border-color:rgba(42,110,245,.6);background:rgba(42,110,245,.06)}
+.otp-timer{font-size:11px;color:var(--muted);text-align:center;margin-top:5px}
+
+.check-row{display:flex;align-items:flex-start;gap:10px;margin-bottom:14px}
+.check-row input{accent-color:var(--sky);margin-top:3px;cursor:pointer;flex-shrink:0}
+.check-row label{font-size:12px;color:var(--muted);cursor:pointer;line-height:1.55}
+.check-row a{color:var(--sky);text-decoration:none}
+.check-row a:hover{text-decoration:underline}
+
+.cta-btn{width:100%;background:linear-gradient(135deg,var(--sky) 0%,#1a56c4 100%);
+  border:none;border-radius:var(--rsm);padding:13px;color:#fff;font-size:14px;font-weight:600;
+  cursor:pointer;font-family:'Syne',sans-serif;letter-spacing:.3px;
+  transition:all .25s;box-shadow:0 4px 20px rgba(42,110,245,.35);margin-bottom:16px;
+  display:flex;align-items:center;justify-content:center;gap:8px}
+.cta-btn:hover{transform:translateY(-1px);box-shadow:0 8px 28px rgba(42,110,245,.5)}
+.cta-btn:disabled{opacity:.6;cursor:not-allowed;transform:none}
+.otp-btn{width:100%;background:rgba(34,211,164,.1);border:1px solid rgba(34,211,164,.3);
+  border-radius:var(--rsm);padding:12px;color:var(--success);font-size:14px;font-weight:600;
+  cursor:pointer;font-family:'Syne',sans-serif;transition:all .25s;margin-bottom:14px;
+  display:flex;align-items:center;justify-content:center;gap:8px}
+.otp-btn:hover{background:rgba(34,211,164,.18)}
+.otp-btn:disabled{opacity:.6;cursor:not-allowed}
+
+.signin-link{text-align:center;font-size:12.5px;color:var(--muted);margin-top:8px}
+.signin-link a{color:var(--sky);text-decoration:none;font-weight:600;cursor:pointer}
+.signin-link a:hover{text-decoration:underline}
+
+/* Features strip */
+.features{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:24px}
+.feat{display:flex;align-items:flex-start;gap:9px;
+  background:rgba(255,255,255,.03);border:1px solid var(--border);
+  border-radius:var(--rsm);padding:10px 12px}
+.feat-icon{font-size:16px;flex-shrink:0;margin-top:1px}
+.feat-text{font-size:12px;color:var(--muted);line-height:1.4}
+.feat-text strong{color:var(--text);display:block;margin-bottom:1px}
+
+/* Toast */
+.toast-wrap{position:fixed;top:24px;left:50%;transform:translateX(-50%);z-index:9999;
+  display:flex;flex-direction:column;gap:8px;pointer-events:none;width:380px;max-width:90vw}
+.toast{border-radius:10px;padding:12px 16px;font-size:13px;font-weight:500;
+  display:flex;align-items:center;gap:10px;pointer-events:all;
+  animation:tin .3s cubic-bezier(.2,.8,.4,1);box-shadow:0 8px 24px rgba(0,0,0,.4)}
+.toast.success{background:#0d2e22;border:1px solid rgba(34,211,164,.3);color:var(--success)}
+.toast.error{background:#2a0d14;border:1px solid rgba(255,77,109,.3);color:var(--err)}
+.toast.info{background:#0d1a35;border:1px solid rgba(42,110,245,.3);color:#7eb3ff}
+@keyframes tin{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:none}}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spinner{width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
+
+@media(max-width:600px){.card-body,.card-head{padding:24px 22px}.features{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="bg"></div>
+<div class="bg-grid"></div>
+<div class="bg-orb orb1"></div>
+<div class="bg-orb orb2"></div>
+<div class="toast-wrap" id="toast-wrap"></div>
+
+<div class="wrapper">
+  <div class="card">
+
+    <div class="card-head">
+      <button class="back-btn" onclick="window.location.href='/auth'">
+        ← Back to Sign In
+      </button>
+      <div class="brand">
+        <div class="brand-icon">🌊</div>
+        <div class="brand-name">DisasterSense</div>
+      </div>
+      <div class="page-title">Create Account</div>
+      <div class="page-sub">Set up your real-time disaster monitoring profile</div>
+    </div>
+
+    <div class="card-body">
+
+      <!-- Features -->
+      <div class="features">
+        <div class="feat"><div class="feat-icon">🌊</div><div class="feat-text"><strong>Flood Alerts</strong>Real-time warnings for your area</div></div>
+        <div class="feat"><div class="feat-icon">🔴</div><div class="feat-text"><strong>Earthquake Data</strong>USGS seismic monitoring</div></div>
+        <div class="feat"><div class="feat-icon">🌀</div><div class="feat-text"><strong>Cyclone Tracker</strong>Live storm path tracking</div></div>
+        <div class="feat"><div class="feat-icon">🔔</div><div class="feat-text"><strong>Push Alerts</strong>Instant disaster notifications</div></div>
+      </div>
+
+      <!-- Google -->
+      <button class="social-btn" onclick="handleGoogleSignUp()">
+        <svg viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+        Continue with Google
+      </button>
+
+      <div class="divider">or register with</div>
+
+      <!-- Method tabs -->
+      <div class="method-tabs">
+        <button class="mtab active" id="rtab-email" onclick="switchRegMethod('email')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><polyline points="22,6 12,13 2,6"/></svg>
+          Email
+        </button>
+        <button class="mtab" id="rtab-phone" onclick="switchRegMethod('phone')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.59 1.09h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 8.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+          Phone
+        </button>
+      </div>
+
+      <!-- EMAIL REGISTRATION -->
+      <div id="reg-email">
+        <div class="field-row">
+          <div class="field"><label>First Name</label><input type="text" id="reg-fname" placeholder="Daridram" autocomplete="given-name"/></div>
+          <div class="field"><label>Last Name</label><input type="text" id="reg-lname" placeholder="Kumar" autocomplete="family-name"/></div>
+        </div>
+        <div class="field">
+          <label>Email Address</label>
+          <input type="email" id="reg-email-inp" placeholder="you@example.com" autocomplete="email"/>
+        </div>
+        <div class="field">
+          <label>Password</label>
+          <input type="password" id="reg-pass" placeholder="Min. 8 characters" autocomplete="new-password" oninput="checkPwStrength(this.value)"/>
+          <button type="button" class="pw-toggle" onclick="togglePw('reg-pass',this)" tabindex="-1">👁</button>
+          <div class="pw-strength" id="pw-strength" style="display:none">
+            <div class="pw-bars">
+              <div class="pw-bar" id="pb1"></div>
+              <div class="pw-bar" id="pb2"></div>
+              <div class="pw-bar" id="pb3"></div>
+              <div class="pw-bar" id="pb4"></div>
+            </div>
+            <div class="pw-label" id="pw-label"></div>
+          </div>
+        </div>
+        <div class="field">
+          <label>Confirm Password</label>
+          <input type="password" id="reg-cpass" placeholder="Repeat password" autocomplete="new-password"/>
+          <button type="button" class="pw-toggle" onclick="togglePw('reg-cpass',this)" tabindex="-1">👁</button>
+        </div>
+        <div class="check-row">
+          <input type="checkbox" id="reg-notif" checked/>
+          <label for="reg-notif">🔔 Enable disaster alerts &amp; hourly weather notifications (recommended)</label>
+        </div>
+        <div class="check-row">
+          <input type="checkbox" id="reg-terms"/>
+          <label for="reg-terms">I agree to the <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a></label>
+        </div>
+        <button class="cta-btn" id="btn-reg-email" onclick="handleEmailRegister()">Create Account →</button>
+      </div>
+
+      <!-- PHONE REGISTRATION -->
+      <div id="reg-phone" style="display:none">
+        <div class="field-row">
+          <div class="field"><label>First Name</label><input type="text" id="reg-fname-p" placeholder="Daridram" autocomplete="given-name"/></div>
+          <div class="field"><label>Last Name</label><input type="text" id="reg-lname-p" placeholder="Kumar" autocomplete="family-name"/></div>
+        </div>
+        <div class="field">
+          <label>Phone Number</label>
+          <div class="phone-row">
+            <select id="reg-country">
+              <option value="+91">🇮🇳 +91</option>
+              <option value="+1">🇺🇸 +1</option>
+              <option value="+44">🇬🇧 +44</option>
+              <option value="+61">🇦🇺 +61</option>
+              <option value="+81">🇯🇵 +81</option>
+              <option value="+86">🇨🇳 +86</option>
+              <option value="+971">🇦🇪 +971</option>
+              <option value="+65">🇸🇬 +65</option>
+            </select>
+            <input type="tel" id="reg-phone-num" placeholder="9876543210" autocomplete="tel"/>
+          </div>
+        </div>
+        <div class="check-row">
+          <input type="checkbox" id="reg-notif-p" checked/>
+          <label for="reg-notif-p">🔔 Enable disaster alerts &amp; hourly weather notifications (recommended)</label>
+        </div>
+        <div class="check-row">
+          <input type="checkbox" id="reg-terms-p"/>
+          <label for="reg-terms-p">I agree to the <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a></label>
+        </div>
+        <button class="otp-btn" id="btn-reg-otp" onclick="sendRegOTP()">Send OTP →</button>
+        <div id="reg-otp-section" style="display:none">
+          <div class="field">
+            <label>Enter 6-digit OTP</label>
+            <input type="text" class="otp-input" id="reg-otp" maxlength="6" placeholder="······" inputmode="numeric" autocomplete="one-time-code"/>
+            <div class="otp-timer" id="reg-otp-timer"></div>
+          </div>
+          <button class="cta-btn" id="btn-reg-verify" onclick="verifyRegOTP()">Verify &amp; Create Account →</button>
+        </div>
+      </div>
+
+      <div class="signin-link">Already have an account? <a onclick="window.location.href='/auth'">Sign In →</a></div>
+    </div>
+  </div>
+</div>
+
+<div id="recaptcha-container"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, signInWithPopup, GoogleAuthProvider,
+         createUserWithEmailAndPassword, updateProfile,
+         signInWithPhoneNumber, RecaptchaVerifier
+       } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDaR6jGo0UxXgL3xXBYrc8Fqdq5O2M74UY",
+  authDomain: "disasterwatch-c3a23.firebaseapp.com",
+  projectId: "disasterwatch-c3a23",
+  storageBucket: "disasterwatch-c3a23.firebasestorage.app",
+  messagingSenderId: "938740750608",
+  appId: "1:938740750608:web:462732572847898d146d95"
+};
+const fbApp = initializeApp(firebaseConfig);
+const auth  = getAuth(fbApp);
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+function toast(msg, type='info', dur=4000) {
+  const icons = {success:'✅', error:'❌', info:'ℹ️'};
+  const w = document.getElementById('toast-wrap');
+  const t = document.createElement('div');
+  t.className = 'toast ' + type;
+  t.innerHTML = '<span>' + (icons[type] || 'ℹ️') + '</span><span>' + msg + '</span>';
+  w.appendChild(t);
+  setTimeout(() => t.remove(), dur);
+}
+
+function setLoading(id, loading, text) {
+  const b = document.getElementById(id);
+  if (!b) return;
+  b.disabled = loading;
+  b.innerHTML = loading ? '<div class="spinner"></div> Please wait…' : text;
+}
+
+async function sendToFlask(token, name, emailOrPhone, notif=true) {
+  const res  = await fetch('/api/auth/verify', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({token, name, emailOrPhone, notifications_enabled: notif})
+  });
+  const data = await res.json();
+  if (data.success) {
+    localStorage.setItem('dw_user', JSON.stringify(data.user));
+    if (notif && 'Notification' in window) {
+      const p = await Notification.requestPermission();
+      if (p==='granted' && 'serviceWorker' in navigator)
+        await navigator.serviceWorker.register('/static/sw.js').catch(()=>{});
+    }
+    toast('Account created! Redirecting…','success',2000);
+    setTimeout(() => window.location.href = '/dashboard', 1400);
+  } else {
+    toast('Registration failed: ' + data.error, 'error');
+  }
+}
+
+// ── UI ────────────────────────────────────────────────────────────────────────
+window.switchRegMethod = (m) => {
+  document.getElementById('reg-email').style.display = m==='email' ? 'block' : 'none';
+  document.getElementById('reg-phone').style.display = m==='phone' ? 'block' : 'none';
+  document.getElementById('rtab-email').classList.toggle('active', m==='email');
+  document.getElementById('rtab-phone').classList.toggle('active', m==='phone');
+};
+
+window.togglePw = (id, btn) => {
+  const i = document.getElementById(id);
+  i.type = i.type==='password' ? 'text' : 'password';
+  btn.textContent = i.type==='password' ? '👁' : '🙈';
+};
+
+window.checkPwStrength = (pw) => {
+  const wrap = document.getElementById('pw-strength');
+  const lbl  = document.getElementById('pw-label');
+  if (!pw) { wrap.style.display='none'; return; }
+  wrap.style.display = 'block';
+  let score = 0;
+  if (pw.length >= 8)               score++;
+  if (/[A-Z]/.test(pw))            score++;
+  if (/[0-9]/.test(pw))            score++;
+  if (/[^A-Za-z0-9]/.test(pw))     score++;
+  const cls  = ['fill-weak','fill-fair','fill-good','fill-strong'];
+  const lbls = ['Weak','Fair','Good','Strong'];
+  for (let i=1;i<=4;i++) {
+    const bar = document.getElementById('pb'+i);
+    bar.className = 'pw-bar ' + (i<=score ? cls[score-1] : '');
+  }
+  lbl.textContent = 'Strength: ' + (lbls[score-1]||'Weak');
+};
+
+// ── Google sign up ────────────────────────────────────────────────────────────
+window.handleGoogleSignUp = async () => {
+  try {
+    const result = await signInWithPopup(auth, new GoogleAuthProvider());
+    const token  = await result.user.getIdToken();
+    await sendToFlask(token, result.user.displayName, result.user.email);
+  } catch(e) {
+    toast('Google sign-up failed: ' + e.message, 'error');
+  }
+};
+
+// ── Email registration ────────────────────────────────────────────────────────
+window.handleEmailRegister = async () => {
+  const fname = document.getElementById('reg-fname').value.trim();
+  const lname = document.getElementById('reg-lname').value.trim();
+  const email = document.getElementById('reg-email-inp').value.trim();
+  const pass  = document.getElementById('reg-pass').value;
+  const cpass = document.getElementById('reg-cpass').value;
+  const notif = document.getElementById('reg-notif').checked;
+  const terms = document.getElementById('reg-terms').checked;
+
+  if (!fname)          { toast('Please enter your first name.','error'); return; }
+  if (!email)          { toast('Please enter your email address.','error'); return; }
+  if (pass.length < 8) { toast('Password must be at least 8 characters.','error'); return; }
+  if (pass !== cpass)  { toast('Passwords do not match.','error'); return; }
+  if (!terms)          { toast('Please accept the Terms of Service.','error'); return; }
+
+  setLoading('btn-reg-email', true, 'Create Account →');
+  try {
+    const result = await createUserWithEmailAndPassword(auth, email, pass);
+    const name   = [fname, lname].filter(Boolean).join(' ');
+    await updateProfile(result.user, { displayName: name });
+    const token  = await result.user.getIdToken();
+    await sendToFlask(token, name, email, notif);
+  } catch(e) {
+    const msgs = {
+      'auth/email-already-in-use': 'This email is already registered. Try signing in.',
+      'auth/invalid-email':        'Invalid email address format.',
+      'auth/weak-password':        'Password is too weak. Use at least 8 characters.',
+    };
+    toast(msgs[e.code] || e.message, 'error');
+  } finally {
+    setLoading('btn-reg-email', false, 'Create Account →');
+  }
+};
+
+// ── Phone OTP registration ────────────────────────────────────────────────────
+let regTimer;
+function startTimer(seconds=60) {
+  let s = seconds;
+  const el = document.getElementById('reg-otp-timer');
+  clearInterval(regTimer);
+  regTimer = setInterval(() => {
+    el.innerHTML = `OTP valid for <strong>${s}s</strong>`;
+    if (--s < 0) {
+      clearInterval(regTimer);
+      el.innerHTML = 'OTP expired. <button class="otp-resend" onclick="sendRegOTP()">Resend</button>';
+    }
+  }, 1000);
+}
+
+window.sendRegOTP = async () => {
+  const fname = document.getElementById('reg-fname-p').value.trim();
+  const phone = document.getElementById('reg-phone-num').value.trim();
+  const code  = document.getElementById('reg-country').value;
+  const terms = document.getElementById('reg-terms-p').checked;
+  if (!fname)  { toast('Please enter your name.','error'); return; }
+  if (!phone)  { toast('Please enter your phone number.','error'); return; }
+  if (!terms)  { toast('Please accept the Terms of Service.','error'); return; }
+  const full = code + phone.replace(/^0+/,'');
+  setLoading('btn-reg-otp', true, 'Send OTP →');
+  try {
+    if (!window.regVerifier) {
+      window.regVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {size:'invisible'});
+    }
+    window.regConfirmation = await signInWithPhoneNumber(auth, full, window.regVerifier);
+    document.getElementById('reg-otp-section').style.display = 'block';
+    document.getElementById('btn-reg-otp').style.display     = 'none';
+    document.getElementById('reg-otp').focus();
+    startTimer(60);
+    toast(`OTP sent to ${full}`, 'success');
+  } catch(e) {
+    const msgs = {
+      'auth/invalid-phone-number': 'Invalid phone number format.',
+      'auth/too-many-requests':    'Too many requests. Please wait a moment.',
+    };
+    toast(msgs[e.code] || 'Failed to send OTP: ' + e.message, 'error');
+    if (window.regVerifier) { window.regVerifier.clear(); window.regVerifier = null; }
+  } finally {
+    setLoading('btn-reg-otp', false, 'Send OTP →');
+  }
+};
+
+window.verifyRegOTP = async () => {
+  const otp   = document.getElementById('reg-otp').value.trim();
+  const fname = document.getElementById('reg-fname-p').value.trim();
+  const lname = document.getElementById('reg-lname-p').value.trim();
+  const notif = document.getElementById('reg-notif-p').checked;
+  const name  = [fname, lname].filter(Boolean).join(' ');
+  if (!otp || otp.length < 6) { toast('Please enter the 6-digit OTP.','error'); return; }
+  setLoading('btn-reg-verify', true, 'Verify & Create Account →');
+  try {
+    const result = await window.regConfirmation.confirm(otp);
+    if (name) await updateProfile(result.user, { displayName: name });
+    clearInterval(regTimer);
+    const token = await result.user.getIdToken();
+    await sendToFlask(token, name, result.user.phoneNumber, notif);
+  } catch(e) {
+    toast('Invalid OTP. Please check and try again.', 'error');
+  } finally {
+    setLoading('btn-reg-verify', false, 'Verify & Create Account →');
+  }
+};
+</script>
+</body>
+</html>
